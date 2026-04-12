@@ -14,31 +14,31 @@ RA.DIFFICULTY_CATEGORY = {
     [7]  = "LFR",
     [17] = "LFR",
     -- Normal (5-man and raid)
-    [1]  = "Normal",
-    [3]  = "Normal",
-    [4]  = "Normal",
-    [9]  = "Normal",
-    [14] = "Normal",
+    [1]  = "NORMAL",
+    [3]  = "NORMAL",
+    [4]  = "NORMAL",
+    [9]  = "NORMAL",
+    [14] = "NORMAL",
     -- Heroic (5-man and raid)
-    [2]  = "Heroic",
-    [5]  = "Heroic",
-    [6]  = "Heroic",
-    [15] = "Heroic",
+    [2]  = "HEROIC",
+    [5]  = "HEROIC",
+    [6]  = "HEROIC",
+    [15] = "HEROIC",
     -- Mythic (5-man and raid)
-    [8]  = "Mythic",
-    [16] = "Mythic",
-    [23] = "Mythic",
+    [8]  = "MYTHIC",
+    [16] = "MYTHIC",
+    [23] = "MYTHIC",
     -- Timewalking
-    [24] = "Normal",
-    [33] = "Normal",
+    [24] = "NORMAL",
+    [33] = "NORMAL",
 }
 
 -- Difficulty category → display colour (RGB, 0-1 range, for use with texture colours).
 RA.DIFFICULTY_COLORS = {
     LFR    = { r = 0.13, g = 0.73, b = 0.20 },   -- green
-    Normal = { r = 0.20, g = 0.45, b = 0.90 },   -- blue
-    Heroic = { r = 0.64, g = 0.21, b = 0.93 },   -- purple
-    Mythic = { r = 1.00, g = 0.50, b = 0.00 },   -- orange
+    NORMAL = { r = 0.20, g = 0.48, b = 0.90 },   -- blue
+    HEROIC = { r = 0.64, g = 0.21, b = 0.93 },   -- purple
+    MYTHIC = { r = 1.00, g = 0.50, b = 0.00 },   -- orange
 }
 
 --- Returns the normalised difficulty category string for a difficultyID.
@@ -54,7 +54,7 @@ end
 --- @return table
 function RA:GetDifficultyColor(difficultyID)
     local cat = RA:GetDifficultyCategory(difficultyID)
-    return RA.DIFFICULTY_COLORS[cat] or RA.DIFFICULTY_COLORS.Normal
+    return RA.DIFFICULTY_COLORS[cat] or RA.DIFFICULTY_COLORS.NORMAL
 end
 
 --- Returns a human-readable difficulty name for display.

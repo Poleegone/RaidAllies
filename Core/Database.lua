@@ -42,7 +42,7 @@ EncounterRecord = {
     instanceID     = number,
     instanceName   = string,
     difficultyID   = number,
-    difficultyName = string,      -- normalised: "LFR" | "Normal" | "Heroic" | "Mythic"
+    difficultyName = string,      -- normalised: "LFR" | "NORMAL" | "HEROIC" | "MYTHIC"
     count          = number,      -- times killed this specific boss/difficulty with this player
     firstKill      = number,      -- timestamp
     lastKill       = number,      -- timestamp
@@ -75,6 +75,13 @@ SettingsRecord = {
     filterRealm  = boolean,  -- show only players from the player's own realm
     autoPrune    = boolean,  -- automatically prune stale records on load
     filters      = FiltersRecord,
+    -- Raid frame overlay badge settings
+    showOverlay  = boolean,  -- show badges on raid/party frames
+    overlayAlpha = number,   -- 0.0 – 1.0, opacity of overlay elements
+    overlayKillOffX = number,  -- pixel offset for kill count badge X
+    overlayKillOffY = number,  -- pixel offset for kill count badge Y
+    overlayAchOffX = number,   -- pixel offset for achievement icon X
+    overlayAchOffY = number,   -- pixel offset for achievement icon Y
     -- Window geometry (saved on move/resize, restored on open)
     windowX      = number|nil,
     windowY      = number|nil,
@@ -83,7 +90,7 @@ SettingsRecord = {
 }
 
 FiltersRecord = {
-    difficulty      = string|nil,  -- nil = Any, or "LFR"/"Normal"/"Heroic"/"Mythic"
+    difficulty      = string|nil,  -- nil = Any, or "LFR"/"NORMAL"/"HEROIC"/"MYTHIC"
     raids           = table,       -- { [instanceName] = true } — empty = all raids shown
     achievementOnly = boolean,
     minKills        = number,      -- minimum unique players in session
@@ -114,6 +121,13 @@ RA.DB_DEFAULTS = {
             fullClearOnly   = false,
             guildClearOnly  = false,
         },
+        -- Raid frame overlay badges
+        showOverlay      = true,
+        overlayAlpha     = 1.0,
+        overlayKillOffX  = 0,
+        overlayKillOffY  = 0,
+        overlayAchOffX   = 0,
+        overlayAchOffY   = 0,
         -- windowX/Y/W/H intentionally absent: nil = use default centred position
     },
 }

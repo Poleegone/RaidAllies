@@ -15,13 +15,20 @@ local T = RA.Theme
 
 T.COLOR = {
     -- Window chrome
-    BG_MAIN     = { 0.07, 0.07, 0.09, 0.96 },
+    BG_MAIN     = { 0.07, 0.07, 0.09, 1.00 },
     BG_TITLE    = { 0.10, 0.10, 0.13, 1.00 },
     BG_FOOTER   = { 0.08, 0.08, 0.10, 1.00 },
 
     -- List rows
-    BG_ROW_ALT   = { 0.11, 0.11, 0.15, 0.55 },
+    BG_ROW_ALT   = { 0.11, 0.11, 0.15, 0.80 },
     BG_ROW_HOVER = { 0.18, 0.20, 0.28, 0.80 },
+
+    -- Player card gradients (subtle)
+    CARD_BG_TOP      = { 0.13, 0.14, 0.18, 0.95 },
+    CARD_BG_BOTTOM   = { 0.11, 0.12, 0.15, 0.95 },
+    CARD_HOVER_TOP   = { 0.16, 0.17, 0.22, 1.00 },
+    CARD_HOVER_BOTTOM = { 0.13, 0.14, 0.18, 1.00 },
+    CARD_SHADOW      = { 0.00, 0.00, 0.00, 0.40 },
 
     -- Borders / separators
     BORDER        = { 0.20, 0.20, 0.26, 1.00 },
@@ -42,10 +49,10 @@ T.COLOR = {
     CE_BG   = { 0.72, 0.08, 0.08, 0.24 },   -- muted red
 
     -- Difficulty
-    DIFF_LFR    = { 0.13, 0.73, 0.20 },
-    DIFF_NORMAL = { 0.20, 0.48, 0.90 },
-    DIFF_HEROIC = { 0.64, 0.21, 0.93 },
-    DIFF_MYTHIC = { 1.00, 0.50, 0.00 },
+    ["DIFF_LFR"]    = { 0.13, 0.73, 0.20 },
+    ["DIFF_NORMAL"] = { 0.20, 0.48, 0.90 },
+    ["DIFF_HEROIC"] = { 0.64, 0.21, 0.93 },
+    ["DIFF_MYTHIC"] = { 1.00, 0.50, 0.00 },
 
     -- Badge / pill
     BADGE_BG     = { 0.12, 0.13, 0.18, 0.95 },
@@ -222,24 +229,27 @@ function T:SetSpecIcon(tex, specID)
 end
 
 -------------------------------------------------------------------------------
--- Role icon — uses the LFG role icon sheet with known TexCoords.
--- This is the most reliable approach across all retail WoW versions.
+-- Role icon — uses named atlases (modern Midnight/retail API).
+-- GetIconForRole is a Blizzard global; falls back to hardcoded atlas names.
 -------------------------------------------------------------------------------
 
-local ROLE_ICON_TEX = "Interface\\LFGFrame\\UI-LFG-ICON-ROLES"
-
--- TexCoord mapping within UI-LFG-ICON-ROLES (left, right, top, bottom)
-local ROLE_COORDS = {
-    TANK    = { 0.00, 0.28, 0.02, 0.50 },
-    HEALER  = { 0.57, 0.86, 0.02, 0.50 },
-    DAMAGER = { 0.29, 0.57, 0.02, 0.50 },
+local ROLE_ATLAS = {
+    TANK    = "UI-LFG-RoleIcon-Tank",
+    HEALER  = "UI-LFG-RoleIcon-Healer",
+    DAMAGER = "UI-LFG-RoleIcon-DPS",
 }
 
---- Sets a role icon on a Texture widget using the LFG icon sheet.
+--- Sets a role icon on a Texture widget using the modern atlas API.
 --- @param tex  Texture
 --- @param role string  "TANK" | "HEALER" | "DAMAGER"
 function T:SetRoleIcon(tex, role)
-    local c = ROLE_COORDS[role] or ROLE_COORDS.DAMAGER
-    tex:SetTexture(ROLE_ICON_TEX)
-    tex:SetTexCoord(c[1], c[2], c[3], c[4])
+    -- Use GetIconForRole if available (future-proof)
+    -- Pass false as second arg to SetAtlas so SetSize() controls dimensions
+    if GetIconForRole then
+        tex:SetAtlas(GetIconForRole(role, false), false)
+        return
+    end
+    -- Fallback to known atlas names
+    local atlas = ROLE_ATLAS[role] or ROLE_ATLAS.DAMAGER
+    tex:SetAtlas(atlas, false)
 end

@@ -21,7 +21,10 @@
         "StaticPopupDialogs",
         "UISpecialFrames",
         "StaticPopup_Show",
-        "ChatFrame_OpenChat"
+        "ChatFrame_OpenChat",
+        "CompactRaidFrameContainer",
+        "CompactPartyFrame",
+        "GetIconForRole"
     ],
     "files.exclude": {
         "**/.git": true,

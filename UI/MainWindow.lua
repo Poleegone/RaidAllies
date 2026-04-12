@@ -148,7 +148,7 @@ function RA:_BuildTitleBar(parent)
     T:ApplyFont(title, 14)
     title:SetTextColor(T.COLOR.TEXT_PRIMARY[1], T.COLOR.TEXT_PRIMARY[2], T.COLOR.TEXT_PRIMARY[3])
     title:SetPoint("LEFT", bar, "LEFT", 12, 0)
-    title:SetText("Raid Allies")
+    title:SetText("RaidAllies")
     RA.titleText = title
 
     -- Right-to-left: [X close] [Options ⚙] [Filters ≡]

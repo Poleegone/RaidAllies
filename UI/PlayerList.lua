@@ -17,11 +17,11 @@ local RaiderIO          = RaiderIO           ---@diagnostic disable-line: undefi
 
 -- Card and grid constants
 local CARD_W        = 175
-local CARD_H        = 72
+local CARD_H        = 90
 local CARD_GAP      = 6
 local CARD_PAD      = 6
 local CLASS_ICON_SZ = 36
-local ROLE_ICON_SZ  = 14
+local ROLE_ICON_SZ  = 12
 local SECTION_H     = 22
 local ICON_GAP      = 4
 
@@ -39,6 +39,40 @@ local ROLE_LABELS = {
 }
 
 local ROLE_ORDER = { "TANK", "HEALER", "DAMAGER" }
+
+-------------------------------------------------------------------------------
+-- Text truncation helper
+-------------------------------------------------------------------------------
+
+--- Truncates text to maxLen characters, appending "…" (UTF-8 ellipsis) if trimmed.
+local function Truncate(text, maxLen)
+    if #text <= maxLen then return text end
+    return text:sub(1, maxLen - 1) .. "\226\128\166"  -- U+2026 HORIZONTAL ELLIPSIS
+end
+
+-------------------------------------------------------------------------------
+-- RaiderIO integration helpers
+-------------------------------------------------------------------------------
+
+--- Returns the M+ score for a player from RaiderIO, or nil if not available.
+local function GetRaiderIOScore(name, realm)
+    if not RaiderIO or not RaiderIO.GetProfile then return nil end
+    local ok, profile = pcall(RaiderIO.GetProfile, name, realm)
+    if ok and profile and profile.mythicKeystoneProfile then
+        return profile.mythicKeystoneProfile.currentScore
+    end
+    return nil
+end
+
+--- Returns the colour for a RaiderIO score (using tier colours if available).
+local function GetRaiderIOScoreColor(score)
+    if RaiderIO and RaiderIO.GetScoreColor then
+        local r, g, b = RaiderIO.GetScoreColor(score)
+        if r then return r, g, b end
+    end
+    -- Fallback: static accent colour
+    return T.COLOR.TEXT_ACCENT[1], T.COLOR.TEXT_ACCENT[2], T.COLOR.TEXT_ACCENT[3]
+end
 
 -------------------------------------------------------------------------------
 -- View creation  (called once from MainWindow._BuildContentArea)
@@ -277,8 +311,23 @@ function RA:_NewPlayerCard(parent)
     achBg:SetColorTexture(0, 0, 0, 0)
     card._achBg = achBg
 
-    -- ── Card background and border ───────────────────────────────────────────
-    T:AddBackground(card, T.COLOR.BG_ROW_ALT)
+    -- ── Card background gradient ────────────────────────────────────────────
+    local cardBg = card:CreateTexture(nil, "BACKGROUND")
+    cardBg:SetAllPoints()
+    local top    = T.COLOR.CARD_BG_TOP
+    local bottom = T.COLOR.CARD_BG_BOTTOM
+    cardBg:SetGradient("VERTICAL",
+        CreateColor(top[1],    top[2],    top[3],    top[4]),
+        CreateColor(bottom[1], bottom[2], bottom[3], bottom[4]))
+    card._cardBg = cardBg
+
+    -- ── Class-color accent strip (left edge) ────────────────────────────────
+    local classStrip = card:CreateTexture(nil, "BORDER")
+    classStrip:SetWidth(3)
+    classStrip:SetPoint("TOPLEFT",    card, "TOPLEFT",    0, 0)
+    classStrip:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", 0, 0)
+    classStrip:SetColorTexture(1, 1, 1, 0)
+    card._classStrip = classStrip
 
     -- Store border textures for hover color changes
     local borderLeft = card:CreateTexture(nil, "BORDER")
@@ -307,10 +356,23 @@ function RA:_NewPlayerCard(parent)
 
     card._borders = { borderLeft, borderTop, borderRight, borderBottom }
 
+    -- ── Subtle shadow (right and bottom edges) ──────────────────────────────
+    local shadowRight = card:CreateTexture(nil, "BORDER")
+    shadowRight:SetColorTexture(T.COLOR.CARD_SHADOW[1], T.COLOR.CARD_SHADOW[2], T.COLOR.CARD_SHADOW[3], T.COLOR.CARD_SHADOW[4])
+    shadowRight:SetPoint("TOPLEFT", borderRight, "TOPRIGHT", 0, 0)
+    shadowRight:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", 0, 0)
+    shadowRight:SetWidth(2)
+
+    local shadowBottom = card:CreateTexture(nil, "BORDER")
+    shadowBottom:SetColorTexture(T.COLOR.CARD_SHADOW[1], T.COLOR.CARD_SHADOW[2], T.COLOR.CARD_SHADOW[3], T.COLOR.CARD_SHADOW[4])
+    shadowBottom:SetPoint("TOPLEFT", borderBottom, "BOTTOMLEFT", 0, 0)
+    shadowBottom:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", 0, 0)
+    shadowBottom:SetHeight(2)
+
     -- ── Class icon (36×36, top-left) ─────────────────────────────────────────
     local classIcon = card:CreateTexture(nil, "ARTWORK")
     classIcon:SetSize(CLASS_ICON_SZ, CLASS_ICON_SZ)
-    classIcon:SetPoint("TOPLEFT", card, "TOPLEFT", CARD_PAD, -CARD_PAD)
+    classIcon:SetPoint("TOPLEFT", card, "TOPLEFT", CARD_PAD + 3, -CARD_PAD)
     card._classIcon = classIcon
 
     -- ── Role icon (14×14, bottom-right of class icon) ──────────────────────
@@ -333,6 +395,7 @@ function RA:_NewPlayerCard(parent)
     T:ApplyFont(realmLabel, T:GetFontSize() - 2)
     realmLabel:SetTextColor(T.COLOR.TEXT_MUTED[1], T.COLOR.TEXT_MUTED[2], T.COLOR.TEXT_MUTED[3])
     realmLabel:SetPoint("TOPLEFT", nameLabel, "BOTTOMLEFT", 0, -2)
+    realmLabel:SetPoint("RIGHT", card, "RIGHT", -CARD_PAD, 0)
     realmLabel:SetJustifyH("LEFT")
     realmLabel:SetWordWrap(false)
     card._realmLabel = realmLabel
@@ -342,10 +405,21 @@ function RA:_NewPlayerCard(parent)
     T:ApplyFont(guildLabel, T:GetFontSize() - 2)
     guildLabel:SetTextColor(T.COLOR.FULL_CLEAR_TEXT[1], T.COLOR.FULL_CLEAR_TEXT[2], T.COLOR.FULL_CLEAR_TEXT[3])
     guildLabel:SetPoint("TOPLEFT", realmLabel, "BOTTOMLEFT", 0, -2)
+    guildLabel:SetPoint("RIGHT", card, "RIGHT", -CARD_PAD, 0)
     guildLabel:SetJustifyH("LEFT")
     guildLabel:SetWordWrap(false)
     guildLabel:Hide()
     card._guildLabel = guildLabel
+
+    -- ── RaiderIO score label (if addon installed) ────────────────────────────────
+    local rioLabel = card:CreateFontString(nil, "OVERLAY")
+    T:ApplyFont(rioLabel, T:GetFontSize() - 2)
+    rioLabel:SetPoint("TOPLEFT", guildLabel, "BOTTOMLEFT", 0, -2)
+    rioLabel:SetPoint("RIGHT", card, "RIGHT", -CARD_PAD, 0)
+    rioLabel:SetJustifyH("LEFT")
+    rioLabel:SetWordWrap(false)
+    rioLabel:Hide()
+    card._rioLabel = rioLabel
 
     -- ── Kill-count badge (bottom-right) ───────────────────────────────────────
     local killBadge = CreateFrame("Frame", nil, card)
@@ -377,6 +451,13 @@ function RA:_NewPlayerCard(parent)
 
     -- ── Hover & tooltip ──────────────────────────────────────────────────────
     card:SetScript("OnEnter", function(c)
+        -- Brighten gradient background on hover
+        local ht = T.COLOR.CARD_HOVER_TOP
+        local hb = T.COLOR.CARD_HOVER_BOTTOM
+        c._cardBg:SetGradient("VERTICAL",
+            CreateColor(ht[1], ht[2], ht[3], ht[4]),
+            CreateColor(hb[1], hb[2], hb[3], hb[4]))
+
         -- Highlight borders
         for _, border in ipairs(c._borders) do
             border:SetColorTexture(
@@ -388,6 +469,10 @@ function RA:_NewPlayerCard(parent)
         local p = c._player
         if not p then return end
 
+        -- Brighten class accent strip on hover
+        local cr, cg, cb = T:ClassColor(p.class)
+        c._classStrip:SetColorTexture(cr, cg, cb, 1.0)
+
         GameTooltip:SetOwner(c, "ANCHOR_RIGHT")
 
         -- Try to use a live unit token if the player is currently in our group
@@ -397,7 +482,7 @@ function RA:_NewPlayerCard(parent)
         else
             -- Manual tooltip: coloured name line + class
             local cr, cg, cb = T:ClassColor(p.class)
-            GameTooltip:AddLine(p.name .. "-" .. p.realm, cr, cg, cb)
+            GameTooltip:AddLine(p.name .. " " .. p.realm, cr, cg, cb)
             local classDisplay = p.class:sub(1, 1) .. p.class:sub(2):lower()
             GameTooltip:AddLine(classDisplay, 0.70, 0.70, 0.70)
             if p.guild then
@@ -415,6 +500,13 @@ function RA:_NewPlayerCard(parent)
     end)
 
     card:SetScript("OnLeave", function(c)
+        -- Restore normal gradient background
+        local top    = T.COLOR.CARD_BG_TOP
+        local bottom = T.COLOR.CARD_BG_BOTTOM
+        c._cardBg:SetGradient("VERTICAL",
+            CreateColor(top[1],    top[2],    top[3],    top[4]),
+            CreateColor(bottom[1], bottom[2], bottom[3], bottom[4]))
+
         -- Restore normal borders
         for _, border in ipairs(c._borders) do
             border:SetColorTexture(
@@ -422,6 +514,14 @@ function RA:_NewPlayerCard(parent)
                 T.COLOR.BORDER[3], T.COLOR.BORDER[4] or 1.0
             )
         end
+
+        -- Dim class accent strip back to resting state
+        local p = c._player
+        if p then
+            local cr, cg, cb = T:ClassColor(p.class)
+            c._classStrip:SetColorTexture(cr, cg, cb, 0.70)
+        end
+
         GameTooltip:Hide()
     end)
 
@@ -518,15 +618,29 @@ function RA:_PopulateCard(card, p)
     card._nameLabel:SetTextColor(cr, cg, cb)
     card._nameLabel:SetText(p.name)
 
-    -- Realm
-    card._realmLabel:SetText("-" .. p.realm)
+    -- Class accent strip (resting state: 70% opacity)
+    card._classStrip:SetColorTexture(cr, cg, cb, 0.70)
 
-    -- Guild (if present)
+    -- Realm
+    card._realmLabel:SetText(p.realm)
+
+    -- Guild (if present) — truncated to 20 chars to prevent overflow
     if p.guild then
-        card._guildLabel:SetText("<" .. p.guild .. ">")
+        card._guildLabel:SetText(Truncate(p.guild, 20))
         card._guildLabel:Show()
     else
         card._guildLabel:Hide()
+    end
+
+    -- RaiderIO score (if addon installed and player has data)
+    local rioScore = GetRaiderIOScore(p.name, p.realm)
+    if rioScore and rioScore > 0 then
+        local r, g, b = GetRaiderIOScoreColor(rioScore)
+        card._rioLabel:SetTextColor(r, g, b)
+        card._rioLabel:SetText(rioScore .. " rio")
+        card._rioLabel:Show()
+    else
+        card._rioLabel:Hide()
     end
 
     -- Kill-count badge

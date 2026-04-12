@@ -20,6 +20,7 @@ UI\OptionsFrame.lua
 UI\EncounterList.lua
 UI\BossList.lua
 UI\PlayerList.lua
+UI\RaidFrameOverlay.lua
 
 # Entry point — wires everything together
 RaidAllies.lua

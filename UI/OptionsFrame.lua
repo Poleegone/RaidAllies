@@ -384,4 +384,126 @@ function RA:CreateOptionsFrame()
     fontDropdown:SetPoint("TOPLEFT",  content, "TOPLEFT",  0, curY)
     fontDropdown:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, curY)
     RA._optFontIdxSet = fontIdxSet
+    curY = curY - (fontDropdown:GetHeight() + SECTION_GAP)
+
+    -- ── Raid frame overlay section header ────────────────────────────────────
+    local overlayHeader = content:CreateFontString(nil, "OVERLAY")
+    T:ApplyFont(overlayHeader, 10)
+    overlayHeader:SetTextColor(T.COLOR.TEXT_MUTED[1], T.COLOR.TEXT_MUTED[2], T.COLOR.TEXT_MUTED[3])
+    overlayHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 0, curY)
+    overlayHeader:SetText("RAID FRAME BADGES")
+    curY = curY - (LABEL_H + SECTION_GAP / 2)
+
+    -- ── Show overlay checkbox ────────────────────────────────────────────────
+    local showOverlay = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
+    showOverlay:SetPoint("TOPLEFT", content, "TOPLEFT", 0, curY)
+    local showOverlayLabel = showOverlay:CreateFontString(nil, "OVERLAY")
+    T:ApplyFont(showOverlayLabel, 11)
+    showOverlayLabel:SetTextColor(T.COLOR.TEXT_PRIMARY[1], T.COLOR.TEXT_PRIMARY[2], T.COLOR.TEXT_PRIMARY[3])
+    showOverlayLabel:SetPoint("LEFT", showOverlay, "RIGHT", 6, 0)
+    showOverlayLabel:SetText("Show badges on raid frames")
+
+    local showOverlayState = RA.db.settings.showOverlay or false
+    showOverlay:SetChecked(showOverlayState)
+
+    local function UpdateOverlayControls(enabled)
+        -- Enable/disable the sliders based on checkbox state
+        if enabled then
+            opacitySlider:SetAlpha(1.0)
+            fontSizeSlider:SetAlpha(1.0)
+            fontDropdown:SetAlpha(1.0)
+        else
+            opacitySlider:SetAlpha(0.5)
+            fontSizeSlider:SetAlpha(0.5)
+            fontDropdown:SetAlpha(0.5)
+        end
+    end
+
+    showOverlay:SetScript("OnClick", function(_, checked)
+        RA.db.settings.showOverlay = checked
+        UpdateOverlayControls(checked)
+        RA:RefreshRaidOverlays()
+    end)
+
+    curY = curY - (ITEM_H + SECTION_GAP / 2)
+
+    -- ── Overlay opacity slider ──────────────────────────────────────────────
+    local initOverlayAlpha = math.floor((RA.db.settings.overlayAlpha or 1.0) * 100)
+    local overlayAlphaSlider, _, overlayAlphaSet = MakeSlider(content,
+        "Badge opacity",
+        0, 100, 5, initOverlayAlpha, "%d%%",
+        function(v)
+            RA.db.settings.overlayAlpha = v / 100
+            RA:RefreshRaidOverlays()
+        end
+    )
+    overlayAlphaSlider:SetPoint("TOPLEFT",  content, "TOPLEFT",  0, curY)
+    overlayAlphaSlider:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, curY)
+    RA._optOverlayAlphaSet = overlayAlphaSet
+    curY = curY - (LABEL_H + SLIDER_H + 8 + SECTION_GAP)
+
+    -- ── Kill badge X offset ─────────────────────────────────────────────────
+    local initKillOffX = RA.db.settings.overlayKillOffX or 0
+    local killOffXSlider, _, killOffXSet = MakeSlider(content,
+        "Kill badge X offset",
+        -20, 20, 1, initKillOffX, "%d",
+        function(v)
+            RA.db.settings.overlayKillOffX = v
+            RA:RefreshRaidOverlays()
+        end
+    )
+    killOffXSlider:SetPoint("TOPLEFT",  content, "TOPLEFT",  0, curY)
+    killOffXSlider:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, curY)
+    RA._optKillOffXSet = killOffXSet
+    curY = curY - (LABEL_H + SLIDER_H + 8 + SECTION_GAP)
+
+    -- ── Kill badge Y offset ─────────────────────────────────────────────────
+    local initKillOffY = RA.db.settings.overlayKillOffY or 0
+    local killOffYSlider, _, killOffYSet = MakeSlider(content,
+        "Kill badge Y offset",
+        -20, 20, 1, initKillOffY, "%d",
+        function(v)
+            RA.db.settings.overlayKillOffY = v
+            RA:RefreshRaidOverlays()
+        end
+    )
+    killOffYSlider:SetPoint("TOPLEFT",  content, "TOPLEFT",  0, curY)
+    killOffYSlider:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, curY)
+    RA._optKillOffYSet = killOffYSet
+    curY = curY - (LABEL_H + SLIDER_H + 8 + SECTION_GAP)
+
+    -- ── Achievement icon X offset ────────────────────────────────────────────
+    local initAchOffX = RA.db.settings.overlayAchOffX or 0
+    local achOffXSlider, _, achOffXSet = MakeSlider(content,
+        "Achievement icon X offset",
+        -20, 20, 1, initAchOffX, "%d",
+        function(v)
+            RA.db.settings.overlayAchOffX = v
+            RA:RefreshRaidOverlays()
+        end
+    )
+    achOffXSlider:SetPoint("TOPLEFT",  content, "TOPLEFT",  0, curY)
+    achOffXSlider:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, curY)
+    RA._optAchOffXSet = achOffXSet
+    curY = curY - (LABEL_H + SLIDER_H + 8 + SECTION_GAP)
+
+    -- ── Achievement icon Y offset ────────────────────────────────────────────
+    local initAchOffY = RA.db.settings.overlayAchOffY or 0
+    local achOffYSlider, _, achOffYSet = MakeSlider(content,
+        "Achievement icon Y offset",
+        -20, 20, 1, initAchOffY, "%d",
+        function(v)
+            RA.db.settings.overlayAchOffY = v
+            RA:RefreshRaidOverlays()
+        end
+    )
+    achOffYSlider:SetPoint("TOPLEFT",  content, "TOPLEFT",  0, curY)
+    achOffYSlider:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, curY)
+    RA._optAchOffYSet = achOffYSet
+
+    -- Set frame height based on content
+    f:SetHeight(math.max(300, -curY + 40))
+
+    -- Update overlay controls visibility based on initial state
+    UpdateOverlayControls(showOverlayState)
 end

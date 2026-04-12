@@ -224,11 +224,11 @@ function RA:CreateFilterFrame()
 
     -- 5 buttons in one row: Any / LFR / Normal / Heroic / Mythic
     local diffDefs = {
-        { label = "Any",    key = nil      },
-        { label = "LFR",    key = "LFR"    },
-        { label = "Normal", key = "Normal" },
-        { label = "Heroic", key = "Heroic" },
-        { label = "Mythic", key = "Mythic" },
+        { label = "Any",    key = nil       },
+        { label = "LFR",    key = "LFR"     },
+        { label = "Normal", key = "NORMAL"  },
+        { label = "Heroic", key = "HEROIC"  },
+        { label = "Mythic", key = "MYTHIC"  },
     }
     local diffButtons = {}
     local btnW = math.floor((FILTER_W - 20) / #diffDefs) - 2
@@ -389,7 +389,7 @@ function RA:RefreshFilterFrame()
     -- ── Difficulty buttons ─────────────────────────────────────────────────
     -- Just sync active state; the buttons are already placed at fixed positions
     -- which we set in CreateFilterFrame at a fixed curY.  Reposition them now.
-    local diffDefs = { nil, "LFR", "Normal", "Heroic", "Mythic" }
+    local diffDefs = { nil, "LFR", "NORMAL", "HEROIC", "MYTHIC" }
     local btnW = math.floor((FILTER_W - 20) / 5) - 2
     for i, btn in ipairs(RA._filterDiffButtons) do
         btn:ClearAllPoints()
