@@ -1,0 +1,25 @@
+## Interface: 120001
+## Title: RaidAllies
+## Notes: Track raid members from successful boss kills.
+## Author: Nosebug
+## Version: 1.0.0
+## SavedVariables: RaidAlliesDB
+## IconTexture: Interface\Icons\Achievement_Boss_Ragnaros
+
+# Core — data layer (no UI dependencies)
+Core\Database.lua
+Core\Utils.lua
+Core\Logger.lua
+Core\DataProvider.lua
+
+# UI — depends on Core being fully loaded first
+UI\Theme.lua
+UI\MainWindow.lua
+UI\FilterFrame.lua
+UI\OptionsFrame.lua
+UI\EncounterList.lua
+UI\BossList.lua
+UI\PlayerList.lua
+
+# Entry point — wires everything together
+RaidAllies.lua

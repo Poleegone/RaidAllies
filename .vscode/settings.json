@@ -1,0 +1,46 @@
+{
+    "Lua.runtime.version": "Lua 5.1",
+    "Lua.runtime.builtin": {
+        "basic": "disable",
+        "debug": "disable",
+        "io": "disable",
+        "math": "disable",
+        "os": "disable",
+        "package": "disable",
+        "string": "disable",
+        "table": "disable",
+        "utf8": "disable"
+    },
+    "Lua.workspace.library": [
+        "~\\.vscode\\extensions\\ketho.wow-api-0.22.3\\Annotations\\Core"
+    ],
+    "Lua.diagnostics.globals": [
+        "SlashCmdList",
+        "RAID_CLASS_COLORS",
+        "UNKNOWNOBJECT",
+        "StaticPopupDialogs",
+        "UISpecialFrames",
+        "StaticPopup_Show",
+        "ChatFrame_OpenChat"
+    ],
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "**/.vexp/daemon.pid": true,
+        "**/.vexp/daemon.sock": true,
+        "**/.vexp/daemon.pipe": true,
+        "**/.vexp/daemon.log": true,
+        "**/.vexp/vexp.log": true,
+        "**/.vexp/healthy": true,
+        "**/.vexp/mcp.port": true,
+        "**/.vexp/index.db": true,
+        "**/.vexp/index.db-wal": true,
+        "**/.vexp/index.db-shm": true,
+        "**/.vexp/parent_workspace.json": true,
+        "**/.vexp/.gitignore": true,
+        "**/.vexp/.gitattributes": true
+    }
+}
