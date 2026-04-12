@@ -202,6 +202,25 @@ function T:SetClassIcon(tex, classToken)
     tex:SetTexCoord(0, 1, 0, 1)
 end
 
+--- Sets the texture to show a specialization icon by spec ID.
+--- @param tex Texture
+--- @param specID number|nil  Specialization ID, or nil to clear
+function T:SetSpecIcon(tex, specID)
+    if not specID then
+        tex:SetTexture(nil)
+        return
+    end
+
+    local _, _, _, icon = GetSpecializationInfoByID(specID)
+    if icon then
+        tex:SetTexture(icon)
+        tex:SetTexCoord(0, 1, 0, 1)
+    else
+        -- Fallback to blank if spec not found
+        tex:SetTexture(nil)
+    end
+end
+
 -------------------------------------------------------------------------------
 -- Role icon — uses the LFG role icon sheet with known TexCoords.
 -- This is the most reliable approach across all retail WoW versions.

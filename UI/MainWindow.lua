@@ -368,20 +368,35 @@ function RA:_BuildResizeHandle(parent)
     handle:SetScript("OnMouseUp", function()
         parent:StopMovingOrSizing()
         RA:SaveWindowGeometry()
-        RA:_OnResized()
+        -- _OnResized will fire via the debounce timer, no need to call explicitly
     end)
     handle:SetScript("OnEnter", function() SetCursor("Interface\\Cursor\\ui-cursor-sizeright") end)
     handle:SetScript("OnLeave", function() SetCursor(nil) end)
 end
 
 function RA:_OnResized()
-    if RA.encounterListView and RA.encounterListView:IsShown() then
-        RA:RefreshEncounterList()
-    elseif RA.bossListView and RA.bossListView:IsShown() then
-        RA:RefreshBossList()
-    elseif RA.playerListView and RA.playerListView:IsShown() then
-        RA:RefreshPlayerList()
+    -- Cancel any previously scheduled refresh
+    if RA._resizeTimer then
+        RA._resizeTimer:Cancel()
+        RA._resizeTimer = nil
     end
+
+    -- Live pass: immediately reposition cards with no repopulation (cheap)
+    if RA.playerListView and RA.playerListView:IsShown() then
+        RA:_LayoutPlayerCards()
+    end
+
+    -- Debounced full refresh: fires 0.1s after the last resize event
+    RA._resizeTimer = C_Timer.NewTimer(0.1, function()
+        RA._resizeTimer = nil
+        if RA.encounterListView and RA.encounterListView:IsShown() then
+            RA:RefreshEncounterList()
+        elseif RA.bossListView and RA.bossListView:IsShown() then
+            RA:RefreshBossList()
+        elseif RA.playerListView and RA.playerListView:IsShown() then
+            RA:RefreshPlayerList()
+        end
+    end)
 end
 
 -- ─── View switching ───────────────────────────────────────────────────────────

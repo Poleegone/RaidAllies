@@ -1,26 +1,44 @@
 -- RaidAllies: PlayerList view
 -- Shows all raiders logged for a specific boss kill within a session.
 -- Accessed by clicking a row in BossList; "← Back" returns to it.
--- Rows are pooled and reused between refreshes.
--- Features: class icon, role icon, name-realm (class coloured), kill-count badge,
---           hover tooltip (WoW unit or manual + time ago), right-click context menu.
+-- Cards are pooled and reused between refreshes.
+-- Features: card-based grid layout grouped by role, spec icon (or class icon fallback), role icon, name-realm (class coloured),
+--           kill-count badge, achievement badges, guild tag, hover tooltip, right-click context menu.
 
 local _, RA = ...
 local T = RA.Theme
 
 -- Blizzard globals declared locally so static analysers don't warn.
-local InviteUnit        = InviteUnit         ---@diagnostic disable-line: undefined-global
 local ChatFrame_OpenChat = ChatFrame_OpenChat ---@diagnostic disable-line: undefined-global
 local AddIgnore         = AddIgnore          ---@diagnostic disable-line: undefined-global
 local EasyMenu          = EasyMenu           ---@diagnostic disable-line: undefined-global
 local MenuUtil          = MenuUtil           ---@diagnostic disable-line: undefined-global
 local RaiderIO          = RaiderIO           ---@diagnostic disable-line: undefined-global
 
-local ROW_H         = 32
-local ROLE_ICON_SZ  = 16
-local CLASS_ICON_SZ = 20
-local BADGE_W       = 44
-local BADGE_H       = 18
+-- Card and grid constants
+local CARD_W        = 175
+local CARD_H        = 72
+local CARD_GAP      = 6
+local CARD_PAD      = 6
+local CLASS_ICON_SZ = 36
+local ROLE_ICON_SZ  = 14
+local SECTION_H     = 22
+local ICON_GAP      = 4
+
+-- Role section styling
+local ROLE_COLORS = {
+    TANK    = { 0.10, 0.20, 0.45, 0.50 },
+    HEALER  = { 0.08, 0.35, 0.15, 0.50 },
+    DAMAGER = { 0.35, 0.12, 0.08, 0.50 },
+}
+
+local ROLE_LABELS = {
+    TANK    = "Tanks",
+    HEALER  = "Healers",
+    DAMAGER = "DPS",
+}
+
+local ROLE_ORDER = { "TANK", "HEALER", "DAMAGER" }
 
 -------------------------------------------------------------------------------
 -- View creation  (called once from MainWindow._BuildContentArea)
@@ -67,12 +85,54 @@ function RA:CreatePlayerListView(parent)
     scrollParent:SetPoint("BOTTOMRIGHT", view,   "BOTTOMRIGHT", 0,  0)
     RA._plScrollParent = scrollParent
 
-    local scroll, content = RA:CreateScrollArea(scrollParent, ROW_H)
+    local scroll, content = RA:CreateScrollArea(scrollParent, CARD_H)
     RA._plScroll  = scroll
     RA._plContent = content
 
-    -- Row pool
-    RA._plRowPool = {}
+    -- Card pool
+    RA._plCardPool = {}
+
+    -- Section headers (one per role)
+    RA._plSectionHeaders = {}
+    for _, role in ipairs(ROLE_ORDER) do
+        local header = CreateFrame("Frame", nil, content)
+        header:SetHeight(SECTION_H)
+        header:Hide()
+
+        local bg = header:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints()
+        local rc = ROLE_COLORS[role]
+        bg:SetColorTexture(rc[1], rc[2], rc[3], rc[4])
+
+        local roleIcon = header:CreateTexture(nil, "ARTWORK")
+        roleIcon:SetSize(16, 16)
+        roleIcon:SetPoint("LEFT", header, "LEFT", 6, 0)
+        T:SetRoleIcon(roleIcon, role)
+
+        local label = header:CreateFontString(nil, "OVERLAY")
+        T:ApplyFont(label, 10)
+        label:SetTextColor(T.COLOR.TEXT_MUTED[1], T.COLOR.TEXT_MUTED[2], T.COLOR.TEXT_MUTED[3])
+        label:SetPoint("LEFT", roleIcon, "RIGHT", 6, 0)
+        label:SetText(ROLE_LABELS[role])
+
+        local count = header:CreateFontString(nil, "OVERLAY")
+        T:ApplyFont(count, 10)
+        count:SetTextColor(T.COLOR.TEXT_ACCENT[1], T.COLOR.TEXT_ACCENT[2], T.COLOR.TEXT_ACCENT[3])
+        count:SetPoint("LEFT", label, "RIGHT", 4, 0)
+        count:SetText("(0)")
+
+        local sep = header:CreateTexture(nil, "BORDER")
+        sep:SetColorTexture(T.COLOR.BORDER[1], T.COLOR.BORDER[2], T.COLOR.BORDER[3], 0.5)
+        sep:SetPoint("BOTTOMLEFT",  header, "BOTTOMLEFT")
+        sep:SetPoint("BOTTOMRIGHT", header, "BOTTOMRIGHT")
+        sep:SetHeight(1)
+
+        RA._plSectionHeaders[role] = {
+            frame = header,
+            label = label,
+            count = count,
+        }
+    end
 
     -- Hidden frame for right-click context menu (EasyMenu / MenuUtil target)
     local ctxFrame = CreateFrame("Frame", "RaidAlliesContextMenu", UIParent, "UIDropDownMenuTemplate")
@@ -104,9 +164,14 @@ function RA:RefreshPlayerList()
 
     content:SetWidth(math.max(1, RA._plScroll:GetWidth()))
 
-    -- Hide pooled rows
-    for _, row in ipairs(RA._plRowPool) do
-        row:Hide()
+    -- Hide all pooled cards
+    for _, card in ipairs(RA._plCardPool) do
+        card:Hide()
+    end
+
+    -- Hide all section headers
+    for _, sectionData in pairs(RA._plSectionHeaders) do
+        sectionData.frame:Hide()
     end
 
     -- Update title
@@ -118,124 +183,217 @@ function RA:RefreshPlayerList()
         and RA:GetPlayersForSessionBoss(sessionKey, encID)
         or {}
 
-    local y = 0
-    for i, p in ipairs(players) do
-        local row = RA:_GetPlayerRow(i)
-        row:ClearAllPoints()
-        row:SetPoint("TOPLEFT",  content, "TOPLEFT",  0, -y)
-        row:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -y)
-        row:SetHeight(ROW_H)
-        RA:_PopulatePlayerRow(row, p, i)
-        row:Show()
-        y = y + ROW_H
-    end
-
-    content:SetHeight(math.max(y, RA._plScroll:GetHeight()))
-
     if #players == 0 then
         RA._plEmptyLabel:Show()
+        content:SetHeight(RA._plScroll:GetHeight())
+        return
     else
         RA._plEmptyLabel:Hide()
     end
-end
 
--------------------------------------------------------------------------------
--- Row pool
--------------------------------------------------------------------------------
-
-function RA:_GetPlayerRow(i)
-    local row = RA._plRowPool[i]
-    if not row then
-        row = RA:_NewPlayerRow(RA._plContent)
-        RA._plRowPool[i] = row
+    -- Group players by role (already sorted TANK → HEALER → DAMAGER by DataProvider)
+    local roleGroups = {
+        TANK    = {},
+        HEALER  = {},
+        DAMAGER = {},
+    }
+    for _, p in ipairs(players) do
+        table.insert(roleGroups[p.role] or roleGroups.DAMAGER, p)
     end
-    return row
+
+    -- Compute grid columns
+    local cardCols = math.max(1, math.floor((content:GetWidth() - CARD_GAP) / (CARD_W + CARD_GAP)))
+    local cardIndex = 1  -- global card pool index
+    local curY = 0       -- absolute Y position within content
+
+    -- Iterate roles in order
+    for _, role in ipairs(ROLE_ORDER) do
+        local group = roleGroups[role]
+        if #group > 0 then
+            -- Show and position section header
+            local sectionData = RA._plSectionHeaders[role]
+            sectionData.frame:ClearAllPoints()
+            sectionData.frame:SetPoint("TOPLEFT",  content, "TOPLEFT",  0, -curY)
+            sectionData.frame:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -curY)
+            sectionData.count:SetText("(" .. #group .. ")")
+            sectionData.frame:Show()
+            curY = curY + SECTION_H + CARD_GAP
+
+            -- Place cards in a grid
+            local cardRow = 0
+            local cardCol = 0
+            for _, p in ipairs(group) do
+                local card = RA:_GetCard(cardIndex)
+
+                -- Compute card position
+                local cardX = CARD_GAP + cardCol * (CARD_W + CARD_GAP)
+                local cardY = curY + cardRow * (CARD_H + CARD_GAP)
+
+                card:ClearAllPoints()
+                card:SetPoint("TOPLEFT", content, "TOPLEFT", cardX, -cardY)
+                card:SetHeight(CARD_H)
+                card:SetWidth(CARD_W)
+
+                RA:_PopulateCard(card, p)
+                card:Show()
+
+                cardIndex = cardIndex + 1
+                cardCol = cardCol + 1
+
+                if cardCol >= cardCols then
+                    cardCol = 0
+                    cardRow = cardRow + 1
+                end
+            end
+
+            -- Advance Y past this role's cards
+            local rowsInGroup = math.ceil(#group / cardCols)
+            curY = curY + (rowsInGroup * (CARD_H + CARD_GAP)) + CARD_GAP
+        end
+    end
+
+    content:SetHeight(math.max(curY, RA._plScroll:GetHeight()))
 end
 
-function RA:_NewPlayerRow(parent)
-    local row = CreateFrame("Button", nil, parent)
-    row:SetHeight(ROW_H)
-    -- Online status indicator (small dot) – will be shown on hover if player is online
-    local onlineIcon = row:CreateTexture(nil, "OVERLAY")
-    onlineIcon:SetSize(8, 8)
-    onlineIcon:SetPoint("LEFT", row._badge, "RIGHT", 6, 0) -- place after badge
-    onlineIcon:SetColorTexture(0, 0.8, 0, 0.8) -- green dot
-    onlineIcon:Hide()
-    row._onlineIcon = onlineIcon
+-------------------------------------------------------------------------------
+-- Card pool
+-------------------------------------------------------------------------------
 
-    -- ── Backgrounds ──────────────────────────────────────────────────────────
-    local altBg = row:CreateTexture(nil, "BACKGROUND")
-    altBg:SetAllPoints()
-    altBg:SetColorTexture(0, 0, 0, 0)
-    row._altBg = altBg
+function RA:_GetCard(i)
+    local card = RA._plCardPool[i]
+    if not card then
+        card = RA:_NewPlayerCard(RA._plContent)
+        RA._plCardPool[i] = card
+    end
+    return card
+end
 
-    local achBg = row:CreateTexture(nil, "BACKGROUND")
+function RA:_NewPlayerCard(parent)
+    local card = CreateFrame("Button", nil, parent)
+
+    -- ── Achievement background tint ───────────────────────────────────────────
+    local achBg = card:CreateTexture(nil, "BACKGROUND")
     achBg:SetAllPoints()
     achBg:SetColorTexture(0, 0, 0, 0)
-    row._achBg = achBg
+    card._achBg = achBg
 
-    -- ── Role icon ─────────────────────────────────────────────────────────────
-    local roleIcon = row:CreateTexture(nil, "ARTWORK")
-    roleIcon:SetSize(ROLE_ICON_SZ, ROLE_ICON_SZ)
-    roleIcon:SetPoint("LEFT", row, "LEFT", 8, 0)
-    row._roleIcon = roleIcon
+    -- ── Card background and border ───────────────────────────────────────────
+    T:AddBackground(card, T.COLOR.BG_ROW_ALT)
 
-    -- ── Class icon ────────────────────────────────────────────────────────────
-    local classIcon = row:CreateTexture(nil, "ARTWORK")
+    -- Store border textures for hover color changes
+    local borderLeft = card:CreateTexture(nil, "BORDER")
+    borderLeft:SetColorTexture(T.COLOR.BORDER[1], T.COLOR.BORDER[2], T.COLOR.BORDER[3], 1)
+    borderLeft:SetPoint("TOPLEFT", card, "TOPLEFT", 0, 0)
+    borderLeft:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", 0, 0)
+    borderLeft:SetWidth(1)
+
+    local borderTop = card:CreateTexture(nil, "BORDER")
+    borderTop:SetColorTexture(T.COLOR.BORDER[1], T.COLOR.BORDER[2], T.COLOR.BORDER[3], 1)
+    borderTop:SetPoint("TOPLEFT", card, "TOPLEFT", 0, 0)
+    borderTop:SetPoint("TOPRIGHT", card, "TOPRIGHT", 0, 0)
+    borderTop:SetHeight(1)
+
+    local borderRight = card:CreateTexture(nil, "BORDER")
+    borderRight:SetColorTexture(T.COLOR.BORDER[1], T.COLOR.BORDER[2], T.COLOR.BORDER[3], 1)
+    borderRight:SetPoint("TOPRIGHT", card, "TOPRIGHT", 0, 0)
+    borderRight:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", 0, 0)
+    borderRight:SetWidth(1)
+
+    local borderBottom = card:CreateTexture(nil, "BORDER")
+    borderBottom:SetColorTexture(T.COLOR.BORDER[1], T.COLOR.BORDER[2], T.COLOR.BORDER[3], 1)
+    borderBottom:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", 0, 0)
+    borderBottom:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", 0, 0)
+    borderBottom:SetHeight(1)
+
+    card._borders = { borderLeft, borderTop, borderRight, borderBottom }
+
+    -- ── Class icon (36×36, top-left) ─────────────────────────────────────────
+    local classIcon = card:CreateTexture(nil, "ARTWORK")
     classIcon:SetSize(CLASS_ICON_SZ, CLASS_ICON_SZ)
-    classIcon:SetPoint("LEFT", roleIcon, "RIGHT", 5, 0)
-    row._classIcon = classIcon
+    classIcon:SetPoint("TOPLEFT", card, "TOPLEFT", CARD_PAD, -CARD_PAD)
+    card._classIcon = classIcon
 
-    -- ── Name-Realm label ──────────────────────────────────────────────────────
-    local nameLabel = row:CreateFontString(nil, "OVERLAY")
+    -- ── Role icon (14×14, bottom-right of class icon) ──────────────────────
+    local roleIcon = card:CreateTexture(nil, "OVERLAY")
+    roleIcon:SetSize(ROLE_ICON_SZ, ROLE_ICON_SZ)
+    roleIcon:SetPoint("BOTTOMRIGHT", classIcon, "BOTTOMRIGHT", 2, -2)
+    card._roleIcon = roleIcon
+
+    -- ── Name label (class-colored) ────────────────────────────────────────────
+    local nameLabel = card:CreateFontString(nil, "OVERLAY")
     T:ApplyFont(nameLabel, T:GetFontSize())
-    nameLabel:SetPoint("LEFT",  classIcon, "RIGHT", 7, 0)
-    nameLabel:SetPoint("RIGHT", row, "RIGHT", -(BADGE_W + 14), 0)
+    nameLabel:SetPoint("TOPLEFT", classIcon, "TOPRIGHT", ICON_GAP, 0)
+    nameLabel:SetPoint("TOPRIGHT", card, "TOPRIGHT", -CARD_PAD, -CARD_PAD)
     nameLabel:SetJustifyH("LEFT")
     nameLabel:SetWordWrap(false)
-    row._nameLabel = nameLabel
+    card._nameLabel = nameLabel
 
-    -- ── Kill-count badge ──────────────────────────────────────────────────────
-    local badge = CreateFrame("Frame", nil, row)
-    badge:SetSize(BADGE_W, BADGE_H)
-    badge:SetPoint("RIGHT", row, "RIGHT", -8, 0)
-    row._badge = badge
+    -- ── Realm label (muted, smaller) ──────────────────────────────────────────
+    local realmLabel = card:CreateFontString(nil, "OVERLAY")
+    T:ApplyFont(realmLabel, T:GetFontSize() - 2)
+    realmLabel:SetTextColor(T.COLOR.TEXT_MUTED[1], T.COLOR.TEXT_MUTED[2], T.COLOR.TEXT_MUTED[3])
+    realmLabel:SetPoint("TOPLEFT", nameLabel, "BOTTOMLEFT", 0, -2)
+    realmLabel:SetJustifyH("LEFT")
+    realmLabel:SetWordWrap(false)
+    card._realmLabel = realmLabel
 
-    local badgeBg = badge:CreateTexture(nil, "BACKGROUND")
-    badgeBg:SetAllPoints()
-    local bc = T.COLOR.BADGE_BG
-    badgeBg:SetColorTexture(bc[1], bc[2], bc[3], bc[4] or 0.95)
-    T:AddBorder(badge, T.COLOR.BADGE_BORDER)
+    -- ── Guild label (green, if present) ───────────────────────────────────────
+    local guildLabel = card:CreateFontString(nil, "OVERLAY")
+    T:ApplyFont(guildLabel, T:GetFontSize() - 2)
+    guildLabel:SetTextColor(T.COLOR.FULL_CLEAR_TEXT[1], T.COLOR.FULL_CLEAR_TEXT[2], T.COLOR.FULL_CLEAR_TEXT[3])
+    guildLabel:SetPoint("TOPLEFT", realmLabel, "BOTTOMLEFT", 0, -2)
+    guildLabel:SetJustifyH("LEFT")
+    guildLabel:SetWordWrap(false)
+    guildLabel:Hide()
+    card._guildLabel = guildLabel
 
-    local badgeLbl = badge:CreateFontString(nil, "OVERLAY")
-    T:ApplyFont(badgeLbl, T:GetFontSize() - 1)
-    badgeLbl:SetTextColor(T.COLOR.TEXT_ACCENT[1], T.COLOR.TEXT_ACCENT[2], T.COLOR.TEXT_ACCENT[3])
-    badgeLbl:SetAllPoints()
-    badgeLbl:SetJustifyH("CENTER")
-    row._badgeLbl = badgeLbl
+    -- ── Kill-count badge (bottom-right) ───────────────────────────────────────
+    local killBadge = CreateFrame("Frame", nil, card)
+    killBadge:SetSize(44, 18)
+    killBadge:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -CARD_PAD, CARD_PAD)
+    T:AddBackground(killBadge, T.COLOR.BADGE_BG)
+    T:AddBorder(killBadge, T.COLOR.BADGE_BORDER)
 
-    -- ── Hover & tooltip ───────────────────────────────────────────────────────
-    row:SetScript("OnEnter", function(r)
-        r._altBg:SetColorTexture(
-            T.COLOR.BG_ROW_HOVER[1], T.COLOR.BG_ROW_HOVER[2],
-            T.COLOR.BG_ROW_HOVER[3], T.COLOR.BG_ROW_HOVER[4] or 0.8
-        )
+    local killLbl = killBadge:CreateFontString(nil, "OVERLAY")
+    T:ApplyFont(killLbl, T:GetFontSize() - 1)
+    killLbl:SetTextColor(T.COLOR.TEXT_ACCENT[1], T.COLOR.TEXT_ACCENT[2], T.COLOR.TEXT_ACCENT[3])
+    killLbl:SetAllPoints()
+    killLbl:SetJustifyH("CENTER")
+    card._killBadgeLbl = killLbl
 
-        local p = r._player
+    -- ── Achievement badge (AOTC/CE, bottom-right above kill badge) ──────────────
+    local achBadge = CreateFrame("Frame", nil, card)
+    achBadge:SetSize(44, 18)
+    achBadge:SetPoint("BOTTOMRIGHT", killBadge, "TOPRIGHT", 0, 2)
+    achBadge:Hide()
+    T:AddBorder(achBadge, T.COLOR.BADGE_BORDER)
+
+    local achLbl = achBadge:CreateFontString(nil, "OVERLAY")
+    T:ApplyFont(achLbl, T:GetFontSize() - 2)
+    achLbl:SetAllPoints()
+    achLbl:SetJustifyH("CENTER")
+    card._achBadge = achBadge
+    card._achBadgeLbl = achLbl
+
+    -- ── Hover & tooltip ──────────────────────────────────────────────────────
+    card:SetScript("OnEnter", function(c)
+        -- Highlight borders
+        for _, border in ipairs(c._borders) do
+            border:SetColorTexture(
+                T.COLOR.BORDER_ACCENT[1], T.COLOR.BORDER_ACCENT[2],
+                T.COLOR.BORDER_ACCENT[3], T.COLOR.BORDER_ACCENT[4] or 1.0
+            )
+        end
+
+        local p = c._player
         if not p then return end
 
-        GameTooltip:SetOwner(r, "ANCHOR_RIGHT")
+        GameTooltip:SetOwner(c, "ANCHOR_RIGHT")
 
         -- Try to use a live unit token if the player is currently in our group
         local unitToken = RA:FindUnitToken(p.name, p.realm)
         if unitToken then
             GameTooltip:SetUnit(unitToken)
-            -- Show online status icon if player is connected
-            if UnitIsConnected(unitToken) then
-                if r._onlineIcon then r._onlineIcon:Show() end
-            else
-                if r._onlineIcon then r._onlineIcon:Hide() end
-            end
         else
             -- Manual tooltip: coloured name line + class
             local cr, cg, cb = T:ClassColor(p.class)
@@ -245,7 +403,6 @@ function RA:_NewPlayerRow(parent)
             if p.guild then
                 GameTooltip:AddLine("<" .. p.guild .. ">", 0.40, 0.80, 0.40)
             end
-            if r._onlineIcon then r._onlineIcon:Hide() end
         end
 
         -- Always append time-since info
@@ -257,22 +414,21 @@ function RA:_NewPlayerRow(parent)
         GameTooltip:Show()
     end)
 
-    row:SetScript("OnLeave", function(r)
-        local c = r._altColor
-        if c then
-            r._altBg:SetColorTexture(c[1], c[2], c[3], c[4])
-        else
-            r._altBg:SetColorTexture(0, 0, 0, 0)
+    card:SetScript("OnLeave", function(c)
+        -- Restore normal borders
+        for _, border in ipairs(c._borders) do
+            border:SetColorTexture(
+                T.COLOR.BORDER[1], T.COLOR.BORDER[2],
+                T.COLOR.BORDER[3], T.COLOR.BORDER[4] or 1.0
+            )
         end
-        -- hide online status icon when no longer hovered
-        if r._onlineIcon then r._onlineIcon:Hide() end
         GameTooltip:Hide()
     end)
 
     -- ── Right-click context menu ──────────────────────────────────────────────
-    row:SetScript("OnMouseUp", function(r, btn)
+    card:SetScript("OnMouseUp", function(c, btn)
         if btn ~= "RightButton" then return end
-        local p = r._player
+        local p = c._player
         if not p then return end
 
         local name  = p.name
@@ -281,10 +437,15 @@ function RA:_NewPlayerRow(parent)
 
         -- Modern API (Dragonflight / TWW / Midnight)
         if MenuUtil and MenuUtil.CreateContextMenu then
-            MenuUtil.CreateContextMenu(r, function(_, rootDescription)
+            MenuUtil.CreateContextMenu(c, function(_, rootDescription)
                 rootDescription:CreateTitle(nameRealm)
                 rootDescription:CreateButton("Invite to Group", function()
-                    InviteUnit(nameRealm)
+                    local unitToken = RA:FindUnitToken(name, realm)
+                    if unitToken then
+                        C_PartyInfo.InviteUnit(unitToken)
+                    else
+                        C_PartyInfo.InviteUnit(name .. "-" .. RA:SanitiseRealm(realm))
+                    end
                 end)
                 rootDescription:CreateButton("Whisper", function()
                     ChatFrame_OpenChat("/w " .. nameRealm .. " ")
@@ -302,7 +463,14 @@ function RA:_NewPlayerRow(parent)
             local menuList = {
                 { text = nameRealm, isTitle = true, notCheckable = true },
                 { text = "Invite to Group", notCheckable = true,
-                  func = function() InviteUnit(nameRealm) end },
+                  func = function()
+                      local unitToken = RA:FindUnitToken(name, realm)
+                      if unitToken then
+                          C_PartyInfo.InviteUnit(unitToken)
+                      else
+                          C_PartyInfo.InviteUnit(name .. "-" .. RA:SanitiseRealm(realm))
+                      end
+                  end },
                 { text = "Whisper", notCheckable = true,
                   func = function() ChatFrame_OpenChat("/w " .. nameRealm .. " ") end },
                 { text = "Ignore", notCheckable = true,
@@ -318,59 +486,135 @@ function RA:_NewPlayerRow(parent)
         end
     end)
 
-    -- ── Bottom separator ──────────────────────────────────────────────────────
-    local sep = row:CreateTexture(nil, "BORDER")
-    sep:SetColorTexture(T.COLOR.BORDER[1], T.COLOR.BORDER[2], T.COLOR.BORDER[3], 0.35)
-    sep:SetPoint("BOTTOMLEFT",  row, "BOTTOMLEFT",  4, 0)
-    sep:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -4, 0)
-    sep:SetHeight(1)
-
-    return row
+    return card
 end
 
 -------------------------------------------------------------------------------
--- Row population
+-- Card population
 -------------------------------------------------------------------------------
 
-function RA:_PopulatePlayerRow(row, p, index)
-    -- Alternating background
-    local altColor
-    if index % 2 == 0 then
-        local c = T.COLOR.BG_ROW_ALT
-        altColor = { c[1], c[2], c[3], c[4] or 0.55 }
-    else
-        altColor = { 0, 0, 0, 0 }
-    end
-    row._altColor = altColor
-    row._altBg:SetColorTexture(altColor[1], altColor[2], altColor[3], altColor[4])
-
-    -- Achievement tint
+function RA:_PopulateCard(card, p)
+    -- Achievement background tint
     if p.wasCE then
         local c = T.COLOR.CE_BG
-        row._achBg:SetColorTexture(c[1], c[2], c[3], c[4] or 0.24)
+        card._achBg:SetColorTexture(c[1], c[2], c[3], c[4] or 0.24)
     elseif p.wasAOTC then
         local c = T.COLOR.AOTC_BG
-        row._achBg:SetColorTexture(c[1], c[2], c[3], c[4] or 0.20)
+        card._achBg:SetColorTexture(c[1], c[2], c[3], c[4] or 0.20)
     else
-        row._achBg:SetColorTexture(0, 0, 0, 0)
+        card._achBg:SetColorTexture(0, 0, 0, 0)
     end
 
     -- Icons
-    T:SetRoleIcon(row._roleIcon, p.role)
-    T:SetClassIcon(row._classIcon, p.class)
+    T:SetRoleIcon(card._roleIcon, p.role)
+    if p.spec then
+        T:SetSpecIcon(card._classIcon, p.spec)
+    else
+        T:SetClassIcon(card._classIcon, p.class)
+    end
 
-    -- Name: class-coloured name + muted realm
+    -- Name: class-coloured
     local cr, cg, cb = T:ClassColor(p.class)
-    local mr, mg, mb = T.COLOR.TEXT_MUTED[1], T.COLOR.TEXT_MUTED[2], T.COLOR.TEXT_MUTED[3]
-    row._nameLabel:SetText(string.format(
-        "|cff%02x%02x%02x%s|r|cff%02x%02x%02x-%s|r",
-        cr * 255, cg * 255, cb * 255, p.name,
-        mr * 255, mg * 255, mb * 255, p.realm
-    ))
+    card._nameLabel:SetTextColor(cr, cg, cb)
+    card._nameLabel:SetText(p.name)
 
-    -- Kill-count badge (total kills with this player on this boss/difficulty)
-    row._badgeLbl:SetText("\195\151" .. p.count)   -- UTF-8 × (U+00D7)
+    -- Realm
+    card._realmLabel:SetText("-" .. p.realm)
+
+    -- Guild (if present)
+    if p.guild then
+        card._guildLabel:SetText("<" .. p.guild .. ">")
+        card._guildLabel:Show()
+    else
+        card._guildLabel:Hide()
+    end
+
+    -- Kill-count badge
+    card._killBadgeLbl:SetText("\195\151" .. p.count)   -- UTF-8 × (U+00D7)
+
+    -- Achievement badge (AOTC/CE)
+    if p.wasCE then
+        card._achBadgeLbl:SetTextColor(1.0, 0.2, 0.2)
+        card._achBadgeLbl:SetText("CE")
+        card._achBadge:Show()
+    elseif p.wasAOTC then
+        card._achBadgeLbl:SetTextColor(1.0, 0.8, 0.2)
+        card._achBadgeLbl:SetText("AOTC")
+        card._achBadge:Show()
+    else
+        card._achBadge:Hide()
+    end
 
     -- Store reference for tooltip/menu handlers
-    row._player = p
+    card._player = p
+end
+
+-------------------------------------------------------------------------------
+-- Fast layout-only pass (called during live resize)
+-------------------------------------------------------------------------------
+
+--- Reposition existing cards without repopulating text/icons.
+--- Called every frame during resize for smooth reflow without expense.
+--- The full RefreshPlayerList will fire on debounce completion with full repopulation.
+function RA:_LayoutPlayerCards()
+    local content = RA._plContent
+    if not content then return end
+
+    content:SetWidth(math.max(1, RA._plScroll:GetWidth()))
+
+    local players = (RA._currentSessionKey and RA._currentEncounterID)
+        and RA:GetPlayersForSessionBoss(RA._currentSessionKey, RA._currentEncounterID)
+        or {}
+    if #players == 0 then return end
+
+    -- Group players by role
+    local roleGroups = {
+        TANK    = {},
+        HEALER  = {},
+        DAMAGER = {},
+    }
+    for _, p in ipairs(players) do
+        table.insert(roleGroups[p.role] or roleGroups.DAMAGER, p)
+    end
+
+    -- Compute grid columns and reposition all visible cards
+    local cardCols  = math.max(1, math.floor((content:GetWidth() - CARD_GAP) / (CARD_W + CARD_GAP)))
+    local cardIndex = 1
+    local curY      = 0
+
+    for _, role in ipairs(ROLE_ORDER) do
+        local group = roleGroups[role]
+        if #group > 0 then
+            local sectionData = RA._plSectionHeaders[role]
+            if sectionData.frame:IsShown() then
+                sectionData.frame:ClearAllPoints()
+                sectionData.frame:SetPoint("TOPLEFT",  content, "TOPLEFT",  0, -curY)
+                sectionData.frame:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -curY)
+            end
+            curY = curY + SECTION_H + CARD_GAP
+
+            local cardRow = 0
+            local cardCol = 0
+            for _ in ipairs(group) do
+                local card = RA._plCardPool[cardIndex]
+                if card and card:IsShown() then
+                    local cardX = CARD_GAP + cardCol * (CARD_W + CARD_GAP)
+                    local cardY = curY + cardRow * (CARD_H + CARD_GAP)
+                    card:ClearAllPoints()
+                    card:SetPoint("TOPLEFT", content, "TOPLEFT", cardX, -cardY)
+                end
+                cardIndex = cardIndex + 1
+                cardCol = cardCol + 1
+                if cardCol >= cardCols then
+                    cardCol = 0
+                    cardRow = cardRow + 1
+                end
+            end
+
+            local rowsInGroup = math.ceil(#group / cardCols)
+            curY = curY + (rowsInGroup * (CARD_H + CARD_GAP)) + CARD_GAP
+        end
+    end
+
+    content:SetHeight(math.max(curY, RA._plScroll:GetHeight()))
 end

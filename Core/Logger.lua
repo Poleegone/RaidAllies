@@ -138,7 +138,7 @@ end
 
 --- Returns a table of PlayerData for every raider currently in the group,
 --- excluding the player themselves.
---- @return table[]  Each entry: { key, name, realm, class, classID, role, guild }
+--- @return table[]  Each entry: { key, name, realm, class, classID, spec, role, guild }
 function RA:SnapshotRoster()
     local players   = {}
     local selfKey   = RA:GetPlayerKey()
@@ -164,6 +164,7 @@ function RA:SnapshotRoster()
                 -- Exclude self
                 if key ~= selfKey then
                     local classToken, classID = RA:GetUnitClass(unit)
+                    local spec  = RA:GetUnitSpec(unit)
                     local role  = RA:GetUnitRole(unit)
                     local guild = RA:GetUnitGuild(unit)
 
@@ -173,6 +174,7 @@ function RA:SnapshotRoster()
                         realm   = realm,
                         class   = classToken or "WARRIOR",
                         classID = classID    or 1,
+                        spec    = spec,
                         role    = role,
                         guild   = guild,
                     }
@@ -208,6 +210,7 @@ function RA:UpsertPlayerKill(
             realm      = playerData.realm,
             class      = playerData.class,
             classID    = playerData.classID,
+            spec       = playerData.spec,
             role       = playerData.role,
             guild      = playerData.guild,
             firstSeen  = now,
@@ -219,8 +222,9 @@ function RA:UpsertPlayerKill(
 
     local player = db.players[key]
 
-    -- Refresh mutable metadata (role/guild can change between sessions)
+    -- Refresh mutable metadata (role/guild/spec can change between sessions)
     player.lastSeen = now
+    player.spec     = playerData.spec
     player.role     = playerData.role
     player.guild    = playerData.guild
     -- class/classID/name/realm are immutable — never overwrite

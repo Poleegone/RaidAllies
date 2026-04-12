@@ -220,6 +220,7 @@ function RA:GetPlayersForSessionBoss(sessionKey, encounterID)
                     realm    = player.realm,
                     class    = player.class    or "WARRIOR",
                     classID  = player.classID  or 1,
+                    spec     = player.spec,
                     role     = player.role     or "DAMAGER",
                     guild    = player.guild,
                     count    = enc and enc.count   or 1,

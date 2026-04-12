@@ -25,6 +25,7 @@ PlayerRecord = {
     realm      = string,          -- "Silvermoon"
     class      = string,          -- class token, e.g. "SHAMAN"
     classID    = number,          -- numeric class ID (for icon lookups)
+    spec       = number|nil,      -- spec ID at last seen, or nil if unavailable
     role       = string,          -- "TANK" | "HEALER" | "DAMAGER"
     guild      = string|nil,      -- guild name at last seen, or nil
     firstSeen  = number,          -- Unix timestamp of first kill together

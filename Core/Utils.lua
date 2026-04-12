@@ -145,6 +145,14 @@ function RA:GetUnitGuild(unit)
     return (guild and guild ~= "") and guild or nil
 end
 
+--- Returns the specialization ID for a unit, or nil if unavailable.
+--- @param unit string
+--- @return number|nil  specID
+function RA:GetUnitSpec(unit)
+    local specID = GetInspectSpecialization(unit)
+    return specID and specID > 0 and specID or nil
+end
+
 --- Returns the player's own realm name.
 --- @return string
 function RA:GetPlayerRealm()
