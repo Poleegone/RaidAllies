@@ -6,6 +6,7 @@
 - **Exclude yourself from roster** — new option under Settings to hide your own character from player lists (off by default, so you appear in your own logs).
 - **Historical self-injection** — your character is now automatically added to all existing boss kill records on first load, so your history is complete from day one.
 - **RaiderIO raid progression** — player cards now display current raid progression (e.g. "9/9M") when RaiderIO is installed, instead of the M+ score.
+- **Pin to Recent Allies** — clickable ★ star icon on the bottom-left of each player card. Click to pin/unpin players as your Recent Allies. Star shows gold when pinned, grey when not pinned.
 
 ### Bug Fixes
 - Fixed RaiderIO data not loading correctly on addon startup.

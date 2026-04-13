@@ -14,6 +14,7 @@ local AddIgnore         = AddIgnore          ---@diagnostic disable-line: undefi
 local EasyMenu          = EasyMenu           ---@diagnostic disable-line: undefined-global
 local MenuUtil          = MenuUtil           ---@diagnostic disable-line: undefined-global
 local RaiderIO          = RaiderIO           ---@diagnostic disable-line: undefined-global
+local RecentAllies      = C_RecentAllies     ---@diagnostic disable-line: undefined-global
 
 -- Card and grid constants
 local CARD_W        = 175
@@ -82,6 +83,39 @@ local function GetRaiderIORaidSummary(name, realm)
         end
     end
     return nil
+end
+
+-- Own-DB pin state — persisted across sessions
+local function IsRAPinned(name, realm)
+    local key = RA:PlayerKey(name, realm)
+    return RA.db.pinnedPlayers[key] == true
+end
+
+local function SetRAPinned(name, realm, pinned)
+    local key = RA:PlayerKey(name, realm)
+    RA.db.pinnedPlayers[key] = pinned and true or nil
+end
+
+-- Best-effort sync to Blizzard's Recent Allies system.
+-- Looks up the player's exact key from GetRecentAllyList() to avoid
+-- realm-name format guessing, then calls SetRecentAllyPinned.
+local function SyncBlizzardPin(name, realm, pinned)
+    if not RecentAllies or not RecentAllies.IsSystemEnabled() then return end
+    if not RecentAllies.IsRecentAllyDataReady() then return end
+    if not RecentAllies.GetRecentAllyList then return end
+    local list = RecentAllies.GetRecentAllyList()
+    if not list then return end
+    local lowerName = name:lower()
+    for _, entry in ipairs(list) do
+        local entryKey = entry.characterKey or entry.name or entry.playerName or entry[1]
+        if entryKey then
+            local entryName = entryKey:match("^([^%-]+)") or entryKey
+            if entryName:lower() == lowerName then
+                pcall(RecentAllies.SetRecentAllyPinned, entryKey, pinned)
+                break
+            end
+        end
+    end
 end
 
 -------------------------------------------------------------------------------
@@ -459,6 +493,41 @@ function RA:_NewPlayerCard(parent)
     card._achBadge = achBadge
     card._achBadgeLbl = achLbl
 
+    -- ── Pin / Recent Ally star button ────────────────────────────────────────
+    local pinBtn = CreateFrame("Button", nil, card)
+    pinBtn:SetSize(16, 16)
+    pinBtn:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", CARD_PAD, CARD_PAD)
+    pinBtn:SetFrameLevel(card:GetFrameLevel() + 3)
+    pinBtn:SetPropagateMouseClicks(false)
+    pinBtn:Hide()   -- hidden by default, shown in _PopulateCard if system enabled
+
+    local pinTex = pinBtn:CreateTexture(nil, "OVERLAY")
+    pinTex:SetSize(14, 14)
+    pinTex:SetPoint("CENTER")
+    pcall(function() pinTex:SetAtlas("Worldquest-Icon", true) end) -- SetAtlas may not be available in all clients
+    if not pinTex:GetAtlas() then
+        -- Fallback: use a basic colored square if atlas not available
+        pinTex:SetColorTexture(1, 0.82, 0, 0.3)
+    end
+
+    pinBtn:SetScript("OnClick", function()
+        local p = card._player
+        if not p then return end
+        local newPinned = not card._isPinned
+        card._isPinned = newPinned
+        SetRAPinned(p.name, p.realm, newPinned)
+        SyncBlizzardPin(p.name, p.realm, newPinned)
+        if newPinned then
+            pinTex:SetVertexColor(1, 0.82, 0, 1)  -- gold
+        else
+            pinTex:SetVertexColor(0.5, 0.5, 0.5, 1)  -- muted grey
+        end
+    end)
+
+    card._pinBtn  = pinBtn
+    card._pinTex  = pinTex
+    card._isPinned = false
+
     -- ── Hover & tooltip ──────────────────────────────────────────────────────
     card:SetScript("OnEnter", function(c)
         -- Brighten gradient background on hover
@@ -650,6 +719,20 @@ function RA:_PopulateCard(card, p)
         card._rioLabel:Show()
     else
         card._rioLabel:Hide()
+    end
+
+    -- Pin star (Recent Allies)
+    local pinned = IsRAPinned(p.name, p.realm)
+    card._isPinned = pinned
+    if pinned then
+        card._pinTex:SetVertexColor(1, 0.82, 0, 1)  -- gold
+    else
+        card._pinTex:SetVertexColor(0.5, 0.5, 0.5, 1)  -- muted grey
+    end
+    if RecentAllies and RecentAllies.IsSystemEnabled() then
+        card._pinBtn:Show()
+    else
+        card._pinBtn:Hide()
     end
 
     -- Kill-count badge

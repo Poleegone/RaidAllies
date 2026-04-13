@@ -3,7 +3,7 @@
 
 local ADDON_NAME, RA = ...
 
-RA.DB_VERSION = 2
+RA.DB_VERSION = 3
 
 -------------------------------------------------------------------------------
 -- Schema documentation
@@ -15,6 +15,7 @@ RaidAlliesDB = {
     sessions     = { [sessionKey] = SessionRecord },
     settings     = SettingsRecord,
     selfInjected = boolean,  -- one-shot flag: true if current player injected into historical kills
+    pinnedPlayers = { [playerKey] = true },  -- players pinned as recent allies in RaidAllies
 }
 
 PlayerKey    = "CharacterName-RealmName"
@@ -106,9 +107,10 @@ FiltersRecord = {
 -------------------------------------------------------------------------------
 
 RA.DB_DEFAULTS = {
-    version  = RA.DB_VERSION,
-    players  = {},
-    sessions = {},
+    version       = RA.DB_VERSION,
+    players       = {},
+    sessions      = {},
+    pinnedPlayers = {},
     settings = {
         opacity     = 1.0,
         fontSize    = 13,
@@ -154,9 +156,10 @@ function RA:InitDB()
     end
 
     -- Ensure all top-level keys exist (handles partial saves / future keys)
-    if type(db.players)  ~= "table" then db.players  = {} end
-    if type(db.sessions) ~= "table" then db.sessions = {} end
-    if type(db.settings) ~= "table" then db.settings = {} end
+    if type(db.players)       ~= "table" then db.players       = {} end
+    if type(db.sessions)      ~= "table" then db.sessions      = {} end
+    if type(db.pinnedPlayers) ~= "table" then db.pinnedPlayers = {} end
+    if type(db.settings)      ~= "table" then db.settings      = {} end
 
     -- Backfill any missing settings with defaults
     local def = RA.DB_DEFAULTS.settings
@@ -201,6 +204,10 @@ function RA:MigrateDB(db)
         if type(db.settings.filters) ~= "table" then
             db.settings.filters = CopyTable(RA.DB_DEFAULTS.settings.filters)
         end
+    end
+    -- v2 → v3: add pinnedPlayers table
+    if db.version < 3 then
+        if type(db.pinnedPlayers) ~= "table" then db.pinnedPlayers = {} end
     end
     db.version = RA.DB_VERSION
 end
