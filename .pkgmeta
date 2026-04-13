@@ -1,0 +1,12 @@
+package-as: RaidAllies
+enable-nolib-creation: no
+
+changelog-title: RaidAllies Changelog
+changelog-file: changelist.md
+
+ignore:
+  - .github
+  - .system
+  - media
+  - .gitignore
+  - README.md
