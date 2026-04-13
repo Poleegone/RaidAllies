@@ -1,6 +1,16 @@
 # RaidAllies Changelog
 
-## v1.1.0 — 2026-04-13
+## v0.9.1 — 2026-04-13
+
+### New Features
+- **Allies tab** — new tab bar at the top of the main window with "Raids" and "Allies" views. Click "Allies" to split the window: browse raids on the left, see all your pinned allies on the right.
+- **Pinned Allies panel** — dedicated list showing every player you've starred, sorted alphabetically. Displays class icon, name, realm, guild, total kill count, and achievement badges (AOTC/CE). Right-click for quick actions (invite, whisper, unpin).
+- **Pin state now persists** — starred players are saved to your RaidAllies data, so pins survive /reload and logouts.
+- **Pin star always visible** — the star icon on player cards no longer requires the Recent Allies system to be active.
+
+---
+
+## v0.9.0— 2026-04-13
 
 ### New Features
 - **Exclude yourself from roster** — new option under Settings to hide your own character from player lists (off by default, so you appear in your own logs).
@@ -13,7 +23,7 @@
 
 ---
 
-## v1.0.0 — 2026-04-12
+## v0.8.9 — 2026-04-12
 
 ### New Features
 - **Player card layout** — the player list now shows visual cards grouped by role (Tanks, Healers, DPS), with class/spec icons, guild tag, achievement badges (AOTC/CE), and kill count.

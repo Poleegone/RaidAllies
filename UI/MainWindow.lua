@@ -30,6 +30,8 @@ local WIN_MAX_H     = 1000
 TITLE_H     = 34
 local FOOTER_H    = 30
 local CONTENT_PAD = 6   -- inset from frame edge to content area
+local TAB_H       = 28  -- height of the tab bar strip
+local SPLIT_W     = 260 -- fixed width of the pinned allies panel (right side)
 
 -- ─── StaticPopup for "Support me" ────────────────────────────────────────────
 
@@ -92,6 +94,7 @@ function RA:CreateMainFrame()
 
     -- Chrome
     RA:_BuildTitleBar(f)
+    RA:_BuildTabBar(f)
     RA:_BuildFooter(f)
     RA:_BuildContentArea(f)
     RA:_BuildResizeHandle(f)
@@ -331,19 +334,154 @@ function RA:_MakeTextButton(parent, text, onClick)
     return btn
 end
 
+-- ─── Tab bar ──────────────────────────────────────────────────────────────────
+
+function RA:_BuildTabBar(parent)
+    local bar = CreateFrame("Frame", nil, parent)
+    bar:SetPoint("TOPLEFT",  parent, "TOPLEFT",  0, -TITLE_H)
+    bar:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, -TITLE_H)
+    bar:SetHeight(TAB_H)
+    RA._tabBar = bar
+
+    T:AddBackground(bar, T.COLOR.BG_TITLE)
+
+    -- Bottom separator
+    local sep = bar:CreateTexture(nil, "BORDER")
+    sep:SetColorTexture(T.COLOR.BORDER[1], T.COLOR.BORDER[2], T.COLOR.BORDER[3], 1)
+    sep:SetPoint("BOTTOMLEFT",  bar, "BOTTOMLEFT")
+    sep:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT")
+    sep:SetHeight(1)
+
+    -- Helper to build a tab button
+    local function MakeTab(label, anchorTo, anchorPoint, xOff)
+        local tab = CreateFrame("Button", nil, bar)
+        tab:SetHeight(TAB_H)
+
+        local lbl = tab:CreateFontString(nil, "OVERLAY")
+        T:ApplyFont(lbl, 11)
+        lbl:SetPoint("CENTER", tab, "CENTER", 0, 1)
+        lbl:SetText(label)
+        tab:SetWidth(lbl:GetStringWidth() + 20)
+        tab._label = lbl
+
+        -- Active underline accent (2px, bottom of tab)
+        local underline = tab:CreateTexture(nil, "OVERLAY")
+        underline:SetHeight(2)
+        underline:SetPoint("BOTTOMLEFT",  tab, "BOTTOMLEFT",  4, 0)
+        underline:SetPoint("BOTTOMRIGHT", tab, "BOTTOMRIGHT", -4, 0)
+        underline:SetColorTexture(
+            T.COLOR.BORDER_ACCENT[1], T.COLOR.BORDER_ACCENT[2],
+            T.COLOR.BORDER_ACCENT[3], T.COLOR.BORDER_ACCENT[4] or 1)
+        underline:Hide()
+        tab._underline = underline
+
+        -- Hover effect
+        tab:SetScript("OnEnter", function()
+            if not tab._active then
+                lbl:SetTextColor(T.COLOR.TEXT_ACCENT[1], T.COLOR.TEXT_ACCENT[2], T.COLOR.TEXT_ACCENT[3])
+            end
+        end)
+        tab:SetScript("OnLeave", function()
+            if not tab._active then
+                lbl:SetTextColor(T.COLOR.TEXT_SECONDARY[1], T.COLOR.TEXT_SECONDARY[2], T.COLOR.TEXT_SECONDARY[3])
+            end
+        end)
+
+        tab:SetPoint(anchorPoint, anchorTo, anchorPoint == "LEFT" and "LEFT" or "RIGHT", xOff, 0)
+        return tab
+    end
+
+    local raidsTab  = MakeTab("Raids",  bar, "LEFT", 8)
+    local alliesTab = MakeTab("Allies", bar, "RIGHT", 2)
+
+    raidsTab:SetScript("OnClick",  function() RA:ActivateRaidsTab()  end)
+    alliesTab:SetScript("OnClick", function() RA:ActivateAlliesTab() end)
+
+    RA._tabRaids  = raidsTab
+    RA._tabAllies = alliesTab
+end
+
+--- Updates the visual state of a tab button.
+function RA:_SetTabActive(tab, active)
+    tab._active = active
+    tab._underline:SetShown(active)
+    if active then
+        tab._label:SetTextColor(T.COLOR.TEXT_PRIMARY[1], T.COLOR.TEXT_PRIMARY[2], T.COLOR.TEXT_PRIMARY[3])
+    else
+        tab._label:SetTextColor(T.COLOR.TEXT_SECONDARY[1], T.COLOR.TEXT_SECONDARY[2], T.COLOR.TEXT_SECONDARY[3])
+    end
+end
+
+--- Activates the "Raids" tab — full-width raid browser.
+function RA:ActivateRaidsTab()
+    RA._activeTab = "raids"
+    -- Content area fills the full width (pinned panel hidden)
+    RA.contentArea:ClearAllPoints()
+    RA.contentArea:SetPoint("TOPLEFT",     RA.mainFrame, "TOPLEFT",     CONTENT_PAD, -(TITLE_H + TAB_H + CONTENT_PAD))
+    RA.contentArea:SetPoint("BOTTOMRIGHT", RA.mainFrame, "BOTTOMRIGHT", -CONTENT_PAD, (FOOTER_H + CONTENT_PAD))
+    RA.raidsPanel:ClearAllPoints()
+    RA.raidsPanel:SetAllPoints(RA.contentArea)
+    RA.pinnedPanel:Hide()
+    RA._splitDivider:Hide()
+    RA:_SetTabActive(RA._tabRaids,  true)
+    RA:_SetTabActive(RA._tabAllies, false)
+end
+
+--- Activates the "Allies" tab — split view with pinned list on the right.
+function RA:ActivateAlliesTab()
+    RA._activeTab = "allies"
+    RA.pinnedPanel:Show()
+    RA._splitDivider:Show()
+    -- Shrink content area to make room for pinned panel on the right
+    RA.contentArea:ClearAllPoints()
+    RA.contentArea:SetPoint("TOPLEFT",     RA.mainFrame, "TOPLEFT",     CONTENT_PAD, -(TITLE_H + TAB_H + CONTENT_PAD))
+    RA.contentArea:SetPoint("BOTTOMRIGHT", RA.pinnedPanel, "BOTTOMLEFT", -1, 0)
+    RA.raidsPanel:ClearAllPoints()
+    RA.raidsPanel:SetAllPoints(RA.contentArea)
+    RA:_SetTabActive(RA._tabRaids,  false)
+    RA:_SetTabActive(RA._tabAllies, true)
+    RA:RefreshPinnedList()
+end
+
 -- ─── Content area ─────────────────────────────────────────────────────────────
 
 function RA:_BuildContentArea(parent)
     local area = CreateFrame("Frame", nil, parent)
-    area:SetPoint("TOPLEFT",     parent, "TOPLEFT",     CONTENT_PAD,  -(TITLE_H  + CONTENT_PAD))
+    area:SetPoint("TOPLEFT",     parent, "TOPLEFT",     CONTENT_PAD,  -(TITLE_H + TAB_H + CONTENT_PAD))
     area:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -CONTENT_PAD,  (FOOTER_H + CONTENT_PAD))
     RA.contentArea = area
 
-    -- Create all three list views — only one is visible at a time
-    RA:CreateEncounterListView(area)   -- session list (EncounterList.lua)
-    RA:CreateBossListView(area)         -- boss list    (BossList.lua)
-    RA:CreatePlayerListView(area)       -- player list  (PlayerList.lua)
+    -- Raids panel (left / full-width depending on active tab)
+    local rp = CreateFrame("Frame", nil, area)
+    rp:SetAllPoints(area)
+    RA.raidsPanel = rp
 
+    -- Pinned panel (right side of main frame, hidden by default)
+    -- Parented to the main frame so it spans from title bar to footer.
+    local pp = CreateFrame("Frame", nil, parent)
+    pp:SetPoint("TOPRIGHT",    parent, "TOPRIGHT",    -CONTENT_PAD, -(TITLE_H + TAB_H + CONTENT_PAD))
+    pp:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -CONTENT_PAD,  (FOOTER_H + CONTENT_PAD))
+    pp:SetWidth(SPLIT_W)
+    pp:Hide()
+    RA.pinnedPanel = pp
+
+    -- Vertical divider between panels (hidden by default)
+    local div = parent:CreateTexture(nil, "ARTWORK")
+    div:SetColorTexture(T.COLOR.BORDER[1], T.COLOR.BORDER[2], T.COLOR.BORDER[3], T.COLOR.BORDER[4] or 1)
+    div:SetWidth(1)
+    div:SetPoint("TOP",    pp, "TOPLEFT",    0, 0)
+    div:SetPoint("BOTTOM", pp, "BOTTOMLEFT", 0, 0)
+    div:Hide()
+    RA._splitDivider = div
+
+    -- Create list views — parented to raidsPanel
+    RA:CreateEncounterListView(rp)
+    RA:CreateBossListView(rp)
+    RA:CreatePlayerListView(rp)
+    RA:CreatePinnedListPanel(pp)
+
+    -- Start on the Raids tab
+    RA:ActivateRaidsTab()
     RA:ShowEncounterList()
 end
 
@@ -395,6 +533,9 @@ function RA:_OnResized()
             RA:RefreshBossList()
         elseif RA.playerListView and RA.playerListView:IsShown() then
             RA:RefreshPlayerList()
+        end
+        if RA._activeTab == "allies" then
+            RA:RefreshPinnedList()
         end
     end)
 end
@@ -494,10 +635,12 @@ function RA:ApplyFontSize()
     -- Hide and clear existing row pools to avoid overlapping rows with old fonts
     for _, row in ipairs(RA._encRowPool  or {}) do row:Hide() end
     for _, row in ipairs(RA._bossRowPool or {}) do row:Hide() end
-    for _, row in ipairs(RA._plRowPool   or {}) do row:Hide() end
-    RA._encRowPool  = {}
-    RA._bossRowPool = {}
-    RA._plRowPool   = {}
+    for _, row in ipairs(RA._plRowPool     or {}) do row:Hide() end
+    for _, row in ipairs(RA._pinnedRowPool or {}) do row:Hide() end
+    RA._encRowPool    = {}
+    RA._bossRowPool   = {}
+    RA._plRowPool     = {}
+    RA._pinnedRowPool = {}
 
     -- Update fonts on static UI elements (title, footer, filter/options button labels)
     if RA.titleText then T:ApplyFont(RA.titleText, 14) end
@@ -517,6 +660,9 @@ function RA:ApplyFontSize()
         RA:RefreshBossList()
     elseif RA.playerListView and RA.playerListView:IsShown() then
         RA:RefreshPlayerList()
+    end
+    if RA._activeTab == "allies" then
+        RA:RefreshPinnedList()
     end
 end
 

@@ -2,7 +2,7 @@
 ## Title: RaidAllies
 ## Notes: Track raid members from successful boss kills.
 ## Author: Nosebug
-## Version: 1.0.0
+## Version: 0.9.1
 ## X-Curse-Project-ID: 1511283
 ## SavedVariables: RaidAlliesDB
 ## IconTexture: Interface\Icons\Achievement_Boss_Ragnaros
@@ -22,6 +22,7 @@ UI\OptionsFrame.lua
 UI\EncounterList.lua
 UI\BossList.lua
 UI\PlayerList.lua
+UI\PinnedList.lua
 UI\RaidFrameOverlay.lua
 
 # Entry point — wires everything together

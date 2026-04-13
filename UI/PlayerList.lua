@@ -517,6 +517,9 @@ function RA:_NewPlayerCard(parent)
         card._isPinned = newPinned
         SetRAPinned(p.name, p.realm, newPinned)
         SyncBlizzardPin(p.name, p.realm, newPinned)
+        if RA._activeTab == "allies" then
+            RA:RefreshPinnedList()
+        end
         if newPinned then
             pinTex:SetVertexColor(1, 0.82, 0, 1)  -- gold
         else
@@ -729,11 +732,7 @@ function RA:_PopulateCard(card, p)
     else
         card._pinTex:SetVertexColor(0.5, 0.5, 0.5, 1)  -- muted grey
     end
-    if RecentAllies and RecentAllies.IsSystemEnabled() then
-        card._pinBtn:Show()
-    else
-        card._pinBtn:Hide()
-    end
+    card._pinBtn:Show()
 
     -- Kill-count badge
     card._killBadgeLbl:SetText("\195\151" .. p.count)   -- UTF-8 × (U+00D7)

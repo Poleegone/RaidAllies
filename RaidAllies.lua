@@ -21,7 +21,7 @@ bootstrapFrame:SetScript("OnEvent", function(self, _, name)
     RA:RegisterEvents()
     RA:RegisterSlashCommands()
 
-    RA:DebugPrint("Loaded — DB v" .. tostring(RA.db.version))
+    print("|cff458CE6[RaidAllies]|r loaded with v0.9.1")
 end)
 
 -------------------------------------------------------------------------------
