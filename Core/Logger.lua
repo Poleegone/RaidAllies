@@ -136,12 +136,13 @@ end
 -- Roster snapshot
 -------------------------------------------------------------------------------
 
---- Returns a table of PlayerData for every raider currently in the group,
---- excluding the player themselves.
+--- Returns a table of PlayerData for every raider currently in the group.
+--- Excludes the player themselves if excludeSelf setting is enabled.
 --- @return table[]  Each entry: { key, name, realm, class, classID, spec, role, guild }
 function RA:SnapshotRoster()
     local players   = {}
     local selfKey   = RA:GetPlayerKey()
+    local excludeSelf = RA.db.settings.excludeSelf or false
     local numMembers = GetNumGroupMembers()
 
     for i = 1, numMembers do
@@ -161,8 +162,8 @@ function RA:SnapshotRoster()
 
                 local key = RA:PlayerKey(name, realm)
 
-                -- Exclude self
-                if key ~= selfKey then
+                -- Skip self if excludeSelf is enabled
+                if not excludeSelf or key ~= selfKey then
                     local classToken, classID = RA:GetUnitClass(unit)
                     local spec  = RA:GetUnitSpec(unit)
                     local role  = RA:GetUnitRole(unit)
@@ -373,4 +374,93 @@ function RA:CheckFullClear(session, instanceName, difficultyID)
         session.fullClearPlayers = commonPlayers
         RA:DebugPrint("Full clear detected for: " .. instanceName)
     end
+end
+
+-------------------------------------------------------------------------------
+-- Historical self-injection migration
+-- One-shot migration to add the current player to all historical boss kills.
+-- This allows historical data to show the addon owner's stats via Details!.
+-------------------------------------------------------------------------------
+
+--- Injects the current player into all existing boss kill snapshots.
+--- Runs once on addon load via a one-shot flag (selfInjected).
+function RA:InjectSelfIntoHistory()
+    if RA.db.selfInjected then return end
+
+    local selfKey = RA:GetPlayerKey()
+    local db = RA.db
+
+    -- Build current player metadata
+    local name, realm = UnitName("player")
+    if not realm or realm == "" then
+        realm = GetRealmName()
+    else
+        realm = RA:SanitiseRealm(realm)
+    end
+
+    local classToken, classID = RA:GetUnitClass("player")
+    local spec  = RA:GetUnitSpec("player")
+    local role  = RA:GetUnitRole("player")
+    local guild = RA:GetUnitGuild("player")
+
+    -- Create self player record if not already present
+    if not db.players[selfKey] then
+        db.players[selfKey] = {
+            name       = name,
+            realm      = realm,
+            class      = classToken or "WARRIOR",
+            classID    = classID    or 1,
+            spec       = spec,
+            role       = role,
+            guild      = guild,
+            firstSeen  = RA:Now(),
+            lastSeen   = RA:Now(),
+            totalKills = 0,
+            encounters = {},
+        }
+    end
+
+    local selfRecord = db.players[selfKey]
+
+    -- Iterate all sessions and inject self into boss snapshots
+    for _, session in pairs(db.sessions) do
+        for encounterID, bossData in pairs(session.bosses) do
+            -- Inject self into the snapshot
+            bossData.players[selfKey] = true
+
+            -- Upsert encounter record for self
+            local encKey = RA:EncounterKey(encounterID, session.difficultyID)
+            if not selfRecord.encounters[encKey] then
+                selfRecord.encounters[encKey] = {
+                    encounterID    = encounterID,
+                    encounterName  = bossData.name,
+                    instanceID     = session.instanceID,
+                    instanceName   = session.instanceName,
+                    difficultyID   = session.difficultyID,
+                    difficultyName = RA:GetDifficultyName(session.difficultyID),
+                    count          = 0,
+                    firstKill      = bossData.killedAt or RA:Now(),
+                    lastKill       = bossData.killedAt or RA:Now(),
+                    wasAOTC        = false,
+                    wasCE          = false,
+                }
+            end
+
+            -- Increment kill count
+            selfRecord.encounters[encKey].count = selfRecord.encounters[encKey].count + 1
+            selfRecord.encounters[encKey].lastKill = bossData.killedAt or RA:Now()
+        end
+    end
+
+    -- Recount total kills for self
+    local totalCount = 0
+    for _ in pairs(selfRecord.encounters) do
+        totalCount = totalCount + 1
+    end
+    selfRecord.totalKills = totalCount
+
+    -- Mark migration as complete
+    RA.db.selfInjected = true
+
+    RA:DebugPrint("Historical self-injection migration complete.")
 end

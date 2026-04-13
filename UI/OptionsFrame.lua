@@ -386,6 +386,27 @@ function RA:CreateOptionsFrame()
     RA._optFontIdxSet = fontIdxSet
     curY = curY - (fontDropdown:GetHeight() + SECTION_GAP)
 
+    -- ── Logging section header ─────────────────────────────────────────────────
+    local loggingHeader = content:CreateFontString(nil, "OVERLAY")
+    T:ApplyFont(loggingHeader, 10)
+    loggingHeader:SetTextColor(T.COLOR.TEXT_MUTED[1], T.COLOR.TEXT_MUTED[2], T.COLOR.TEXT_MUTED[3])
+    loggingHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 0, curY)
+    loggingHeader:SetText("LOGGING")
+    curY = curY - (LABEL_H + SECTION_GAP / 2)
+
+    -- ── Exclude self checkbox ──────────────────────────────────────────────────
+    local excludeSelfCheck, excludeSelfGet, excludeSelfSet = MakeCheckbox(content, "Exclude self from roster")
+    excludeSelfCheck:SetPoint("TOPLEFT",  content, "TOPLEFT",  0, curY)
+    excludeSelfCheck:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, curY)
+    excludeSelfSet(RA.db.settings.excludeSelf or false)
+    excludeSelfCheck:SetScript("OnClick", function()
+        excludeSelfSet(not excludeSelfGet())           -- toggle visual + internal state
+        RA.db.settings.excludeSelf = excludeSelfGet()  -- persist new value
+        RA:RefreshPlayerList()                         -- refresh display with new filter
+    end)
+    RA._optExcludeSelfSet = excludeSelfSet
+    curY = curY - (ITEM_H + SECTION_GAP)
+
     -- ── Raid frame overlay section header ────────────────────────────────────
     local overlayHeader = content:CreateFontString(nil, "OVERLAY")
     T:ApplyFont(overlayHeader, 10)

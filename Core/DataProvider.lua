@@ -207,27 +207,31 @@ function RA:GetPlayersForSessionBoss(sessionKey, encounterID)
     local difficultyID = session.difficultyID
     local encKey       = RA:EncounterKey(encounterID, difficultyID)
     local myRealm      = RA.db.settings.filterRealm and RA:GetPlayerRealm() or nil
+    local selfKey      = RA.db.settings.excludeSelf and RA:GetPlayerKey() or nil
 
     local players = {}
     for playerKey in pairs(bossData.players) do
         local player = RA.db.players[playerKey]
         if player then
-            -- Apply own-realm filter if enabled
-            if not myRealm or player.realm == myRealm then
-                local enc = player.encounters[encKey]
-                players[#players + 1] = {
-                    name     = player.name,
-                    realm    = player.realm,
-                    class    = player.class    or "WARRIOR",
-                    classID  = player.classID  or 1,
-                    spec     = player.spec,
-                    role     = player.role     or "DAMAGER",
-                    guild    = player.guild,
-                    count    = enc and enc.count   or 1,
-                    wasAOTC  = enc and enc.wasAOTC  or false,
-                    wasCE    = enc and enc.wasCE    or false,
-                    lastKill = enc and enc.lastKill or (bossData.killedAt or 0),
-                }
+            -- Skip self if excludeSelf is enabled
+            if not (selfKey and playerKey == selfKey) then
+                -- Apply own-realm filter if enabled
+                if not myRealm or player.realm == myRealm then
+                    local enc = player.encounters[encKey]
+                    players[#players + 1] = {
+                        name     = player.name,
+                        realm    = player.realm,
+                        class    = player.class    or "WARRIOR",
+                        classID  = player.classID  or 1,
+                        spec     = player.spec,
+                        role     = player.role     or "DAMAGER",
+                        guild    = player.guild,
+                        count    = enc and enc.count   or 1,
+                        wasAOTC  = enc and enc.wasAOTC  or false,
+                        wasCE    = enc and enc.wasCE    or false,
+                        lastKill = enc and enc.lastKill or (bossData.killedAt or 0),
+                    }
+                end
             end
         end
     end

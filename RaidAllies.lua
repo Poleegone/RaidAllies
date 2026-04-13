@@ -17,6 +17,7 @@ bootstrapFrame:SetScript("OnEvent", function(self, _, name)
     self:UnregisterEvent("ADDON_LOADED")
 
     RA:InitDB()
+    RA:InjectSelfIntoHistory()  -- one-shot migration to add current player to historical kills
     RA:RegisterEvents()
     RA:RegisterSlashCommands()
 

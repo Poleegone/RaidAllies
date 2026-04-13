@@ -10,10 +10,11 @@ RA.DB_VERSION = 2
 -------------------------------------------------------------------------------
 --[[
 RaidAlliesDB = {
-    version  = number,
-    players  = { [playerKey] = PlayerRecord },
-    sessions = { [sessionKey] = SessionRecord },
-    settings = SettingsRecord,
+    version      = number,
+    players      = { [playerKey] = PlayerRecord },
+    sessions     = { [sessionKey] = SessionRecord },
+    settings     = SettingsRecord,
+    selfInjected = boolean,  -- one-shot flag: true if current player injected into historical kills
 }
 
 PlayerKey    = "CharacterName-RealmName"
@@ -73,6 +74,7 @@ SettingsRecord = {
     fontSize     = number,   -- 10 – 18
     fontName     = string,
     filterRealm  = boolean,  -- show only players from the player's own realm
+    excludeSelf  = boolean,  -- exclude current player from roster logging
     autoPrune    = boolean,  -- automatically prune stale records on load
     filters      = FiltersRecord,
     -- Raid frame overlay badge settings
@@ -112,6 +114,7 @@ RA.DB_DEFAULTS = {
         fontSize    = 13,
         fontName    = "Friz Quadrata TT",
         filterRealm = false,
+        excludeSelf = false,
         autoPrune   = true,
         filters = {
             difficulty      = nil,
