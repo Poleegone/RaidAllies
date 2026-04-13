@@ -21,7 +21,7 @@ bootstrapFrame:SetScript("OnEvent", function(self, _, name)
     RA:RegisterEvents()
     RA:RegisterSlashCommands()
 
-    print("|cff458CE6[RaidAllies]|r loaded with v0.9.1")
+    print("|cff458CE6[RaidAllies]|r loaded with v0.9.1 - |cff458CE6/ra|r")
 end)
 
 -------------------------------------------------------------------------------
