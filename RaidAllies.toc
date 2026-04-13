@@ -3,8 +3,10 @@
 ## Notes: Track raid members from successful boss kills.
 ## Author: Nosebug
 ## Version: 1.0.0
+## X-Curse-Project-ID: 1511283
 ## SavedVariables: RaidAlliesDB
 ## IconTexture: Interface\Icons\Achievement_Boss_Ragnaros
+## OptionalDeps: RaiderIO
 
 # Core — data layer (no UI dependencies)
 Core\Database.lua

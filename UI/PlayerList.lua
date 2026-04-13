@@ -55,23 +55,33 @@ end
 -------------------------------------------------------------------------------
 
 --- Returns the M+ score for a player from RaiderIO, or nil if not available.
-local function GetRaiderIOScore(name, realm)
+local DIFF_SUFFIX = { [1] = "N", [2] = "H", [3] = "M" }
+
+local function GetRaiderIORaidSummary(name, realm)
     if not RaiderIO or not RaiderIO.GetProfile then return nil end
     local ok, profile = pcall(RaiderIO.GetProfile, name, realm)
-    if ok and profile and profile.mythicKeystoneProfile then
-        return profile.mythicKeystoneProfile.currentScore
+    if not ok or not profile then return nil end
+    local rp = profile.raidProfile
+    if not rp or not rp.hasRenderableData then return nil end
+
+    -- Find the current-tier entry; fall back to first non-nil entry
+    local best = nil
+    for _, raidProg in ipairs(rp.raidProgress) do
+        if raidProg.current then best = raidProg; break end
+    end
+    if not best and #rp.raidProgress > 0 then best = rp.raidProgress[1] end
+    if not best then return nil end
+
+    local bossCount = best.raid.bossCount
+    -- Walk difficulties highest → lowest, return first with kills > 0
+    for diff = 3, 1, -1 do
+        for _, group in ipairs(best.progress) do
+            if group.difficulty == diff and not group.obsolete and (group.kills or 0) > 0 then
+                return string.format("%d/%d%s", group.kills, bossCount, DIFF_SUFFIX[diff])
+            end
+        end
     end
     return nil
-end
-
---- Returns the colour for a RaiderIO score (using tier colours if available).
-local function GetRaiderIOScoreColor(score)
-    if RaiderIO and RaiderIO.GetScoreColor then
-        local r, g, b = RaiderIO.GetScoreColor(score)
-        if r then return r, g, b end
-    end
-    -- Fallback: static accent colour
-    return T.COLOR.TEXT_ACCENT[1], T.COLOR.TEXT_ACCENT[2], T.COLOR.TEXT_ACCENT[3]
 end
 
 -------------------------------------------------------------------------------
@@ -632,12 +642,11 @@ function RA:_PopulateCard(card, p)
         card._guildLabel:Hide()
     end
 
-    -- RaiderIO score (if addon installed and player has data)
-    local rioScore = GetRaiderIOScore(p.name, p.realm)
-    if rioScore and rioScore > 0 then
-        local r, g, b = GetRaiderIOScoreColor(rioScore)
-        card._rioLabel:SetTextColor(r, g, b)
-        card._rioLabel:SetText(rioScore .. " rio")
+    -- RaiderIO raid progression (if addon installed and player has data)
+    local rioSummary = GetRaiderIORaidSummary(p.name, p.realm)
+    if rioSummary then
+        card._rioLabel:SetTextColor(T.COLOR.TEXT_MUTED[1], T.COLOR.TEXT_MUTED[2], T.COLOR.TEXT_MUTED[3])
+        card._rioLabel:SetText(rioSummary)
         card._rioLabel:Show()
     else
         card._rioLabel:Hide()
