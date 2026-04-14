@@ -44,6 +44,91 @@ StaticPopupDialogs["RAIDALLIES_SUPPORT"] = {
     preferredIndex = 3,
 }
 
+-- ─── Custom note dialog ──────────────────────────────────────────────────────
+
+--- Shows the note-editing dialog for a player. Lazily creates the frame on first call.
+function RA:ShowNoteDialog(name, realm)
+    if not RA._noteDialog then
+        RA:_BuildNoteDialog()
+    end
+    local dlg = RA._noteDialog
+    dlg._playerKey = RA:PlayerKey(name, realm)
+    dlg._titleText:SetText("Note for " .. name)
+    local rec = RA.db.players[dlg._playerKey]
+    dlg._editBox:SetText(rec and rec.note or "")
+    dlg._editBox:HighlightText()
+    dlg:Show()
+    dlg._editBox:SetFocus()
+end
+
+function RA:_BuildNoteDialog()
+    local dlg = CreateFrame("Frame", "RaidAlliesNoteDialog", UIParent)
+    dlg:SetSize(300, 120)
+    dlg:SetPoint("CENTER")
+    dlg:SetFrameStrata("FULLSCREEN_DIALOG")
+    dlg:SetClampedToScreen(true)
+    dlg:Hide()
+    RA._noteDialog = dlg
+
+    T:AddBackground(dlg, T.COLOR.BG_MAIN)
+    T:AddBorder(dlg, T.COLOR.BORDER)
+
+    -- Title strip
+    local titleBar = CreateFrame("Frame", nil, dlg)
+    titleBar:SetPoint("TOPLEFT",  dlg, "TOPLEFT",  0, 0)
+    titleBar:SetPoint("TOPRIGHT", dlg, "TOPRIGHT", 0, 0)
+    titleBar:SetHeight(28)
+    T:AddBackground(titleBar, T.COLOR.BG_TITLE)
+    local sep = titleBar:CreateTexture(nil, "BORDER")
+    sep:SetColorTexture(T.COLOR.BORDER[1], T.COLOR.BORDER[2], T.COLOR.BORDER[3], 1)
+    sep:SetPoint("BOTTOMLEFT",  titleBar, "BOTTOMLEFT")
+    sep:SetPoint("BOTTOMRIGHT", titleBar, "BOTTOMRIGHT")
+    sep:SetHeight(1)
+    local titleText = titleBar:CreateFontString(nil, "OVERLAY")
+    T:ApplyFont(titleText, 11)
+    titleText:SetTextColor(T.COLOR.TEXT_PRIMARY[1], T.COLOR.TEXT_PRIMARY[2], T.COLOR.TEXT_PRIMARY[3])
+    titleText:SetPoint("LEFT", titleBar, "LEFT", 10, 0)
+    dlg._titleText = titleText
+
+    -- EditBox container
+    local ebBg = CreateFrame("Frame", nil, dlg)
+    ebBg:SetPoint("TOPLEFT",     dlg, "TOPLEFT",     10, -36)
+    ebBg:SetPoint("TOPRIGHT",    dlg, "TOPRIGHT",    -10, -36)
+    ebBg:SetHeight(26)
+    T:AddBackground(ebBg, { 0.05, 0.05, 0.07, 1.0 })
+    T:AddBorder(ebBg, T.COLOR.BORDER)
+
+    local eb = CreateFrame("EditBox", nil, ebBg)
+    eb:SetPoint("TOPLEFT",     ebBg, "TOPLEFT",     5,  -3)
+    eb:SetPoint("BOTTOMRIGHT", ebBg, "BOTTOMRIGHT", -5,  3)
+    T:ApplyFont(eb, T:GetFontSize())
+    eb:SetTextColor(T.COLOR.TEXT_PRIMARY[1], T.COLOR.TEXT_PRIMARY[2], T.COLOR.TEXT_PRIMARY[3])
+    eb:SetAutoFocus(false)
+    eb:SetMaxLetters(200)
+    dlg._editBox = eb
+
+    -- Buttons (reuse the title-bar pill style)
+    local cancelBtn = RA:_MakeTitleIconButton(dlg, "Cancel", function() dlg:Hide() end)
+    cancelBtn:SetPoint("BOTTOMRIGHT", dlg, "BOTTOMRIGHT", -10, 10)
+
+    local saveBtn = RA:_MakeTitleIconButton(dlg, "Save", function()
+        local key  = dlg._playerKey
+        local note = eb:GetText():match("^%s*(.-)%s*$")
+        if key and RA.db.players[key] then
+            RA.db.players[key].note = (note ~= "" and note or nil)
+        end
+        dlg:Hide()
+        RA:RefreshCurrentView()
+    end)
+    saveBtn:SetPoint("RIGHT", cancelBtn, "LEFT", -6, 0)
+
+    -- Enter confirms, Escape cancels
+    eb:SetScript("OnEnterPressed", function() saveBtn:Click() end)
+    eb:SetScript("OnEscapePressed", function() dlg:Hide() end)
+
+    tinsert(UISpecialFrames, "RaidAlliesNoteDialog")
+end
+
 -- ─── Public entry points ──────────────────────────────────────────────────────
 
 --- Creates all UI frames on first call; idempotent thereafter.
@@ -69,6 +154,16 @@ function RA:CloseAllFrames()
     if RA.mainFrame    and RA.mainFrame:IsShown()    then RA.mainFrame:Hide()    end
     if RA.filterFrame  and RA.filterFrame:IsShown()  then RA.filterFrame:Hide()  end
     if RA.optionsFrame and RA.optionsFrame:IsShown() then RA.optionsFrame:Hide() end
+end
+
+--- Refreshes the currently visible view (player list and/or pinned list if allies tab is active).
+function RA:RefreshCurrentView()
+    if RA.playerListView and RA.playerListView:IsShown() then
+        RA:RefreshPlayerList()
+    end
+    if RA._activeTab == "allies" then
+        RA:RefreshPinnedList()
+    end
 end
 
 -- ─── Main frame creation ──────────────────────────────────────────────────────
@@ -425,10 +520,21 @@ function RA:ActivateRaidsTab()
     RA._splitDivider:Hide()
     RA:_SetTabActive(RA._tabRaids,  true)
     RA:_SetTabActive(RA._tabAllies, false)
+    -- Defer PlayerList refresh until anchors are processed
+    C_Timer.After(0, function()
+        if RA.playerListView and RA.playerListView:IsShown() then
+            RA:RefreshPlayerList()
+        end
+    end)
 end
 
 --- Activates the "Allies" tab — split view with pinned list on the right.
+--- Toggles: if already showing allies, collapses back to full-width raids.
 function RA:ActivateAlliesTab()
+    if RA._activeTab == "allies" then
+        RA:ActivateRaidsTab()
+        return
+    end
     RA._activeTab = "allies"
     RA.pinnedPanel:Show()
     RA._splitDivider:Show()
@@ -441,6 +547,12 @@ function RA:ActivateAlliesTab()
     RA:_SetTabActive(RA._tabRaids,  false)
     RA:_SetTabActive(RA._tabAllies, true)
     RA:RefreshPinnedList()
+    -- Defer PlayerList refresh until anchors are processed
+    C_Timer.After(0, function()
+        if RA.playerListView and RA.playerListView:IsShown() then
+            RA:RefreshPlayerList()
+        end
+    end)
 end
 
 -- ─── Content area ─────────────────────────────────────────────────────────────
@@ -519,14 +631,20 @@ function RA:_OnResized()
         RA._resizeTimer = nil
     end
 
-    -- Live pass: immediately reposition cards with no repopulation (cheap)
+    -- Throttled live pass: reposition cards at most ~20 times/sec during drag.
+    -- Avoids per-frame layout work (table alloc + N SetPoint calls) at 60+ fps.
     if RA.playerListView and RA.playerListView:IsShown() then
-        RA:_LayoutPlayerCards()
+        local now = GetTime()
+        if not RA._lastLayoutTime or (now - RA._lastLayoutTime) >= 0.05 then
+            RA._lastLayoutTime = now
+            RA:_LayoutPlayerCards()
+        end
     end
 
     -- Debounced full refresh: fires 0.1s after the last resize event
     RA._resizeTimer = C_Timer.NewTimer(0.1, function()
-        RA._resizeTimer = nil
+        RA._resizeTimer    = nil
+        RA._lastLayoutTime = nil
         if RA.encounterListView and RA.encounterListView:IsShown() then
             RA:RefreshEncounterList()
         elseif RA.bossListView and RA.bossListView:IsShown() then
@@ -633,13 +751,15 @@ end
 --- overlap the freshly-created rows at the new size.
 function RA:ApplyFontSize()
     -- Hide and clear existing row pools to avoid overlapping rows with old fonts
-    for _, row in ipairs(RA._encRowPool  or {}) do row:Hide() end
-    for _, row in ipairs(RA._bossRowPool or {}) do row:Hide() end
-    for _, row in ipairs(RA._plRowPool     or {}) do row:Hide() end
-    for _, row in ipairs(RA._pinnedRowPool or {}) do row:Hide() end
+    for _, row  in ipairs(RA._encRowPool    or {}) do row:Hide()  end
+    for _, row  in ipairs(RA._bossRowPool   or {}) do row:Hide()  end
+    for _, row  in ipairs(RA._plRowPool     or {}) do row:Hide()  end
+    for _, card in ipairs(RA._plCardPool    or {}) do card:Hide() end
+    for _, row  in ipairs(RA._pinnedRowPool or {}) do row:Hide()  end
     RA._encRowPool    = {}
     RA._bossRowPool   = {}
     RA._plRowPool     = {}
+    RA._plCardPool    = {}
     RA._pinnedRowPool = {}
 
     -- Update fonts on static UI elements (title, footer, filter/options button labels)

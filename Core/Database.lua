@@ -30,6 +30,7 @@ PlayerRecord = {
     spec       = number|nil,      -- spec ID at last seen, or nil if unavailable
     role       = string,          -- "TANK" | "HEALER" | "DAMAGER"
     guild      = string|nil,      -- guild name at last seen, or nil
+    note       = string|nil,      -- user-authored note about this player, or nil
     firstSeen  = number,          -- Unix timestamp of first kill together
     lastSeen   = number,          -- Unix timestamp of most recent kill together
     totalKills = number,          -- running total of boss kills with this player

@@ -1,12 +1,25 @@
 # RaidAllies Changelog
 
+## v0.9.2 — 2026-04-14
+
+### New Features
+- **Error logging** — the addon now captures Lua errors locally so you can diagnose issues. Use `/ra errors` to view the last 50 errors (with timestamps), or `/ra clearerrors` to wipe the log. Useful for reporting bugs with context.
+- **Notes!** — add notes to allies with right-click → "Add Note". View notes when hovering players in any list view.
+
+### Bug Fixes
+- Fixed class accent stripe not showing on player cards.
+- Fixed border color on hover not matching player class color.
+- Fixed font changes not applying to existing player cards.
+- Fixed player cards not reflow seamlessly when toggling the Allies tab.
+
+---
+
 ## v0.9.1 — 2026-04-13
 
 ### New Features
 - **Allies tab** — new tab bar at the top of the main window with "Raids" and "Allies" views. Click "Allies" to split the window: browse raids on the left, see all your pinned allies on the right.
 - **Pinned Allies panel** — dedicated list showing every player you've starred, sorted alphabetically. Displays class icon, name, realm, guild, total kill count, and achievement badges (AOTC/CE). Right-click for quick actions (invite, whisper, unpin).
-- **Pin state now persists** — starred players are saved to your RaidAllies data, so pins survive /reload and logouts.
-- **Pin star always visible** — the star icon on player cards no longer requires the Recent Allies system to be active.
+- **Pin state now persists** — pinned players are saved to your RaidAllies data, so pins survive /reload and logouts.
 
 ---
 

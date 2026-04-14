@@ -41,6 +41,8 @@ local ROLE_LABELS = {
 
 local ROLE_ORDER = { "TANK", "HEALER", "DAMAGER" }
 
+local ClassColor = C_ClassColor
+
 -------------------------------------------------------------------------------
 -- Text truncation helper
 -------------------------------------------------------------------------------
@@ -366,7 +368,7 @@ function RA:_NewPlayerCard(parent)
     card._cardBg = cardBg
 
     -- ── Class-color accent strip (left edge) ────────────────────────────────
-    local classStrip = card:CreateTexture(nil, "BORDER")
+    local classStrip = card:CreateTexture(nil, "ARTWORK")
     classStrip:SetWidth(3)
     classStrip:SetPoint("TOPLEFT",    card, "TOPLEFT",    0, 0)
     classStrip:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", 0, 0)
@@ -378,25 +380,25 @@ function RA:_NewPlayerCard(parent)
     borderLeft:SetColorTexture(T.COLOR.BORDER[1], T.COLOR.BORDER[2], T.COLOR.BORDER[3], 1)
     borderLeft:SetPoint("TOPLEFT", card, "TOPLEFT", 0, 0)
     borderLeft:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", 0, 0)
-    borderLeft:SetWidth(1)
+    borderLeft:SetWidth(3)
 
     local borderTop = card:CreateTexture(nil, "BORDER")
     borderTop:SetColorTexture(T.COLOR.BORDER[1], T.COLOR.BORDER[2], T.COLOR.BORDER[3], 1)
     borderTop:SetPoint("TOPLEFT", card, "TOPLEFT", 0, 0)
     borderTop:SetPoint("TOPRIGHT", card, "TOPRIGHT", 0, 0)
-    borderTop:SetHeight(1)
+    borderTop:SetHeight(3)
 
     local borderRight = card:CreateTexture(nil, "BORDER")
     borderRight:SetColorTexture(T.COLOR.BORDER[1], T.COLOR.BORDER[2], T.COLOR.BORDER[3], 1)
     borderRight:SetPoint("TOPRIGHT", card, "TOPRIGHT", 0, 0)
     borderRight:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", 0, 0)
-    borderRight:SetWidth(1)
+    borderRight:SetWidth(3)
 
     local borderBottom = card:CreateTexture(nil, "BORDER")
     borderBottom:SetColorTexture(T.COLOR.BORDER[1], T.COLOR.BORDER[2], T.COLOR.BORDER[3], 1)
     borderBottom:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", 0, 0)
     borderBottom:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", 0, 0)
-    borderBottom:SetHeight(1)
+    borderBottom:SetHeight(3)
 
     card._borders = { borderLeft, borderTop, borderRight, borderBottom }
 
@@ -493,10 +495,10 @@ function RA:_NewPlayerCard(parent)
     card._achBadge = achBadge
     card._achBadgeLbl = achLbl
 
-    -- ── Pin / Recent Ally star button ────────────────────────────────────────
+    -- ── Pin / Recent Ally pin button ────────────────────────────────────────
     local pinBtn = CreateFrame("Button", nil, card)
     pinBtn:SetSize(16, 16)
-    pinBtn:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", CARD_PAD, CARD_PAD)
+    pinBtn:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", CARD_PAD + 10, CARD_PAD + 10)
     pinBtn:SetFrameLevel(card:GetFrameLevel() + 3)
     pinBtn:SetPropagateMouseClicks(false)
     pinBtn:Hide()   -- hidden by default, shown in _PopulateCard if system enabled
@@ -504,10 +506,10 @@ function RA:_NewPlayerCard(parent)
     local pinTex = pinBtn:CreateTexture(nil, "OVERLAY")
     pinTex:SetSize(14, 14)
     pinTex:SetPoint("CENTER")
-    pcall(function() pinTex:SetAtlas("Worldquest-Icon", true) end) -- SetAtlas may not be available in all clients
+    pcall(function() pinTex:SetAtlas("friendslist-recentallies-Pin-yellow", true) end) -- SetAtlas may not be available in all clients
     if not pinTex:GetAtlas() then
         -- Fallback: use a basic colored square if atlas not available
-        pinTex:SetColorTexture(1, 0.82, 0, 0.3)
+        pinTex:SetColorTexture(1, 0.82, 0, 0.2)
     end
 
     pinBtn:SetScript("OnClick", function()
@@ -523,13 +525,32 @@ function RA:_NewPlayerCard(parent)
         if newPinned then
             pinTex:SetVertexColor(1, 0.82, 0, 1)  -- gold
         else
-            pinTex:SetVertexColor(0.5, 0.5, 0.5, 1)  -- muted grey
+            pinTex:SetVertexColor(0.5, 0.5, 0.5, 0.4)  -- muted grey
         end
     end)
 
     card._pinBtn  = pinBtn
     card._pinTex  = pinTex
     card._isPinned = false
+
+    -- ── Note icon (texture, top-right) ───────────────────────
+    local noteIcon = card:CreateTexture(nil, "OVERLAY")
+    noteIcon:SetSize(14, 14)
+    noteIcon:SetPoint("TOPRIGHT", card, "TOPRIGHT", - CARD_GAP, - CARD_GAP)
+    noteIcon:SetAlpha(0.3)
+    -- Try various note-like atlases; fall back to colored dot
+    local atlasFound = false
+    for _, atlas in ipairs({ "poi-workorders" }) do
+        if pcall(function() noteIcon:SetAtlas(atlas, true) end) and noteIcon:GetAtlas() then
+            atlasFound = true
+            break
+        end
+    end
+    if not atlasFound then
+        noteIcon:SetColorTexture(1, 0.82, 0, 0.7)  -- fallback: soft gold dot
+    end
+    noteIcon:Hide()
+    card._noteIcon = noteIcon
 
     -- ── Hover & tooltip ──────────────────────────────────────────────────────
     card:SetScript("OnEnter", function(c)
@@ -540,19 +561,17 @@ function RA:_NewPlayerCard(parent)
             CreateColor(ht[1], ht[2], ht[3], ht[4]),
             CreateColor(hb[1], hb[2], hb[3], hb[4]))
 
-        -- Highlight borders
-        for _, border in ipairs(c._borders) do
-            border:SetColorTexture(
-                T.COLOR.BORDER_ACCENT[1], T.COLOR.BORDER_ACCENT[2],
-                T.COLOR.BORDER_ACCENT[3], T.COLOR.BORDER_ACCENT[4] or 1.0
-            )
-        end
-
         local p = c._player
         if not p then return end
 
-        -- Brighten class accent strip on hover
         local cr, cg, cb = T:ClassColor(p.class)
+
+        -- Highlight borders with class colour
+        for _, border in ipairs(c._borders) do
+            border:SetColorTexture(cr, cg, cb, 0.8)
+        end
+
+        -- Brighten class accent strip on hover
         c._classStrip:SetColorTexture(cr, cg, cb, 1.0)
 
         GameTooltip:SetOwner(c, "ANCHOR_RIGHT")
@@ -576,6 +595,13 @@ function RA:_NewPlayerCard(parent)
         if p.lastKill and p.lastKill > 0 then
             GameTooltip:AddLine(" ")
             GameTooltip:AddLine("Last kill together: " .. RA:TimeAgo(p.lastKill), 0.55, 0.55, 0.65)
+        end
+
+        -- Show user note if it exists
+        local rawP = RA.db.players[RA:PlayerKey(p.name, p.realm)]
+        if rawP and rawP.note and rawP.note ~= "" then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("Note: " .. rawP.note, 1.0, 1.0, 0.55)
         end
 
         GameTooltip:Show()
@@ -616,6 +642,11 @@ function RA:_NewPlayerCard(parent)
         local name  = p.name
         local realm = p.realm
         local nameRealm = name .. "-" .. realm
+        local playerKey = RA:PlayerKey(name, realm)
+
+        -- Determine note button label (context-sensitive)
+        local rawRec = RA.db.players[playerKey]
+        local noteLabel = (rawRec and rawRec.note and rawRec.note ~= "") and "Edit Note" or "Add Note"
 
         -- Modern API (Dragonflight / TWW / Midnight)
         if MenuUtil and MenuUtil.CreateContextMenu then
@@ -635,10 +666,9 @@ function RA:_NewPlayerCard(parent)
                 rootDescription:CreateButton("Ignore", function()
                     AddIgnore(nameRealm)
                 end)
-                -- RaiderIO: passive note (no direct "open profile" API exposed)
-                if RaiderIO then
-                    rootDescription:CreateButton("RaiderIO (hover for data)", function() end)
-                end
+                rootDescription:CreateButton(noteLabel, function()
+                    RA:ShowNoteDialog(name, realm)
+                end)
             end)
         elseif EasyMenu then
             -- Legacy fallback
@@ -657,6 +687,8 @@ function RA:_NewPlayerCard(parent)
                   func = function() ChatFrame_OpenChat("/w " .. nameRealm .. " ") end },
                 { text = "Ignore", notCheckable = true,
                   func = function() AddIgnore(nameRealm) end },
+                { text = noteLabel, notCheckable = true,
+                  func = function() RA:ShowNoteDialog(name, realm) end },
             }
             if RaiderIO then
                 menuList[#menuList + 1] = {
@@ -730,9 +762,13 @@ function RA:_PopulateCard(card, p)
     if pinned then
         card._pinTex:SetVertexColor(1, 0.82, 0, 1)  -- gold
     else
-        card._pinTex:SetVertexColor(0.5, 0.5, 0.5, 1)  -- muted grey
+        card._pinTex:SetVertexColor(0.5, 0.5, 0.5, 0.4)  -- muted grey
     end
     card._pinBtn:Show()
+
+    -- Note icon (pencil)
+    local rawP = RA.db.players[RA:PlayerKey(p.name, p.realm)]
+    card._noteIcon:SetShown(rawP and rawP.note and rawP.note ~= "" or false)
 
     -- Kill-count badge
     card._killBadgeLbl:SetText("\195\151" .. p.count)   -- UTF-8 × (U+00D7)

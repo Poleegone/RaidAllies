@@ -4,12 +4,13 @@
 ## Author: Nosebug
 ## Version: 0.9.1
 ## X-Curse-Project-ID: 1511283
-## SavedVariables: RaidAlliesDB
+## SavedVariables: RaidAlliesDB, RaidAlliesErrorsDB
 ## IconTexture: Interface\Icons\Achievement_Boss_Ragnaros
 ## OptionalDeps: RaiderIO
 
 # Core — data layer (no UI dependencies)
 Core\Database.lua
+Core\ErrorLog.lua
 Core\Utils.lua
 Core\Logger.lua
 Core\DataProvider.lua

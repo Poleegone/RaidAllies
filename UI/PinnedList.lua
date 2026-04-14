@@ -256,21 +256,20 @@ function RA:_NewPinnedRow(parent)
     row._achBadge    = achBadge
     row._achBadgeLbl = achLbl
 
-    -- Unpin star button (bottom-left)
+    -- Unpin button (topright)
     local pinBtn = CreateFrame("Button", nil, row)
-    pinBtn:SetSize(16, 16)
-    pinBtn:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", ROW_PAD, ROW_PAD)
+    pinBtn:SetSize(14, 14)
+    pinBtn:SetPoint("TOPRIGHT", row, "TOPRIGHT", - 4 - ROW_PAD, - 4 - ROW_PAD)
     pinBtn:SetFrameLevel(row:GetFrameLevel() + 3)
     pinBtn:SetPropagateMouseClicks(false)
 
     local pinTex = pinBtn:CreateTexture(nil, "OVERLAY")
-    pinTex:SetSize(14, 14)
+    pinTex:SetScale(.5)
     pinTex:SetPoint("CENTER")
-    pcall(function() pinTex:SetAtlas("Worldquest-Icon", true) end)
+    pcall(function() pinTex:SetAtlas("runecarving-icon-reagent-empty-error", true) end)
     if not pinTex:GetAtlas() then
         pinTex:SetColorTexture(1, 0.82, 0, 0.3)
     end
-    pinTex:SetVertexColor(1, 0.82, 0, 1)  -- always gold (they're pinned)
 
     pinBtn:SetScript("OnClick", function()
         local p = row._player
@@ -286,6 +285,25 @@ function RA:_NewPinnedRow(parent)
     end)
     row._pinBtn = pinBtn
     row._pinTex = pinTex
+
+    -- ── Note icon (texture, top-right) ───────────────────────
+    local noteIcon = row:CreateTexture(nil, "OVERLAY")
+    noteIcon:SetSize(14, 14)
+    noteIcon:SetPoint("TOPRIGHT", row, "TOPRIGHT", - ROW_PAD - 20, - ROW_PAD)
+    noteIcon:SetAlpha(0.3)
+    -- Try various note-like atlases; fall back to colored dot
+    local atlasFound = false
+    for _, atlas in ipairs({ "poi-workorders" }) do
+        if pcall(function() noteIcon:SetAtlas(atlas, true) end) and noteIcon:GetAtlas() then
+            atlasFound = true
+            break
+        end
+    end
+    if not atlasFound then
+        noteIcon:SetColorTexture(1, 0.82, 0, 0.7)  -- fallback: soft gold dot
+    end
+    noteIcon:Hide()
+    row._noteIcon = noteIcon
 
     -- ── Hover ────────────────────────────────────────────────────────────────
     row:SetScript("OnEnter", function(r)
@@ -323,6 +341,12 @@ function RA:_NewPinnedRow(parent)
                 GameTooltip:AddLine(" ")
                 GameTooltip:AddLine("Last seen: " .. RA:TimeAgo(p.lastSeen), 0.55, 0.55, 0.65)
             end
+            -- Show user note if it exists
+            local rawP = RA.db.players[RA:PlayerKey(p.name, p.realm)]
+            if rawP and rawP.note and rawP.note ~= "" then
+                GameTooltip:AddLine(" ")
+                GameTooltip:AddLine("Note: " .. rawP.note, 1.0, 1.0, 0.55)
+            end
             GameTooltip:Show()
         end
     end)
@@ -355,6 +379,11 @@ function RA:_NewPinnedRow(parent)
         local name  = p.name
         local realm = p.realm
         local nameRealm = name .. "-" .. realm
+        local playerKey = RA:PlayerKey(name, realm)
+
+        -- Determine note button label (context-sensitive)
+        local rawRec = RA.db.players[playerKey]
+        local noteLabel = (rawRec and rawRec.note and rawRec.note ~= "") and "Edit Note" or "Add Note"
 
         if MenuUtil and MenuUtil.CreateContextMenu then
             MenuUtil.CreateContextMenu(r, function(_, rootDescription)
@@ -377,6 +406,9 @@ function RA:_NewPinnedRow(parent)
                     if RA.playerListView and RA.playerListView:IsShown() then
                         RA:RefreshPlayerList()
                     end
+                end)
+                rootDescription:CreateButton(noteLabel, function()
+                    RA:ShowNoteDialog(name, realm)
                 end)
                 rootDescription:CreateButton("Ignore", function()
                     AddIgnore(nameRealm)
@@ -405,6 +437,8 @@ function RA:_NewPinnedRow(parent)
                           RA:RefreshPlayerList()
                       end
                   end },
+                { text = noteLabel, notCheckable = true,
+                  func = function() RA:ShowNoteDialog(name, realm) end },
                 { text = "Ignore", notCheckable = true,
                   func = function() AddIgnore(nameRealm) end },
             }
@@ -469,6 +503,10 @@ function RA:_PopulatePinnedRow(row, p)
     else
         row._achBadge:Hide()
     end
+
+    -- Note icon
+    local rawP = RA.db.players[RA:PlayerKey(p.name, p.realm)]
+    row._noteIcon:SetShown(rawP and rawP.note and rawP.note ~= "" or false)
 
     -- Store reference for tooltip and context menu
     row._player = p

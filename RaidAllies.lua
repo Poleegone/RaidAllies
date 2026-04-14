@@ -17,11 +17,10 @@ bootstrapFrame:SetScript("OnEvent", function(self, _, name)
     self:UnregisterEvent("ADDON_LOADED")
 
     RA:InitDB()
+    RA:InitErrorLog()
     RA:InjectSelfIntoHistory()  -- one-shot migration to add current player to historical kills
     RA:RegisterEvents()
     RA:RegisterSlashCommands()
-
-    print("|cff458CE6[RaidAllies]|r loaded with v0.9.1 - |cff458CE6/ra|r")
 end)
 
 -------------------------------------------------------------------------------
@@ -90,6 +89,12 @@ function RA:HandleSlashCommand(input)
             result.sessions, result.players
         ))
 
+    elseif cmd == "errors" then
+        RA:PrintErrorLog()
+
+    elseif cmd == "clearerrors" then
+        RA:ClearErrorLog()
+
     elseif cmd == "help" then
         RA:_PrintHelp()
 
@@ -99,12 +104,16 @@ function RA:HandleSlashCommand(input)
     end
 end
 
+    print("|cff458CE6[RaidAllies]|r loaded with v0.9.1 - |cff458CE6/ra|r - |cff458CE6/ra help|r for commands.")
+
 function RA:_PrintHelp()
     local c, r = "|cff00aeef", "|r"
     print(c .. "── RaidAllies ──" .. r)
     print("  " .. c .. "/ra" .. r .. " or " .. c .. "/raidallies" .. r .. "  — toggle window")
     print("  " .. c .. "/ra debug" .. r .. "            — toggle debug output")
     print("  " .. c .. "/ra prune" .. r .. "            — manually prune old DB records")
+    print("  " .. c .. "/ra errors" .. r .. "           — show error log")
+    print("  " .. c .. "/ra clearerrors" .. r .. "      — clear error log")
     print("  " .. c .. "/ra reset confirm" .. r .. "   — wipe all saved data")
     print("  " .. c .. "/ra help" .. r .. "             — show this message")
 end
