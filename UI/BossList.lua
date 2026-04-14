@@ -188,7 +188,6 @@ function RA:_NewBossRow(parent)
             T.COLOR.BG_ROW_HOVER[1], T.COLOR.BG_ROW_HOVER[2],
             T.COLOR.BG_ROW_HOVER[3], T.COLOR.BG_ROW_HOVER[4] or 0.8
         )
-        r._arrowLbl:SetTextColor(T.COLOR.TEXT_ACCENT[1], T.COLOR.TEXT_ACCENT[2], T.COLOR.TEXT_ACCENT[3])
     end)
     row:SetScript("OnLeave", function(r)
         local c = r._altColor
@@ -197,7 +196,6 @@ function RA:_NewBossRow(parent)
         else
             r._altBg:SetColorTexture(0, 0, 0, 0)
         end
-        r._arrowLbl:SetTextColor(T.COLOR.TEXT_MUTED[1], T.COLOR.TEXT_MUTED[2], T.COLOR.TEXT_MUTED[3])
     end)
 
     -- ── Bottom separator ──────────────────────────────────────────────────────
