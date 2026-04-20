@@ -1,0 +1,18 @@
+## Interface: 120001
+## Title: RaidAllies
+## Notes: Track recent raid allies and re-invite quickly.
+## Author: Nosebug
+## Version: 0.9.4
+## SavedVariablesPerCharacter: RaidAlliesDB
+
+Core.lua
+Data.lua
+Snapshots.lua
+MythicPlus.lua
+Session.lua
+Events.lua
+UI_Summary.lua
+UI_SessionPlayers.lua
+UI_Snapshots.lua
+UI_Main.lua
+Tooltip.lua
