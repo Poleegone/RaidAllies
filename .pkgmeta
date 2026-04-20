@@ -1,0 +1,8 @@
+package-as: RaidAllies
+
+ignore:
+  - .github
+  - .gitignore
+  - .pkgmeta
+  - notes.md
+  - README.md

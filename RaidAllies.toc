@@ -2,7 +2,7 @@
 ## Title: RaidAllies
 ## Notes: Track recent raid allies and re-invite quickly.
 ## Author: Nosebug
-## Version: 0.9.4
+## Version: @project-version@
 ## SavedVariablesPerCharacter: RaidAlliesDB
 
 Core.lua
