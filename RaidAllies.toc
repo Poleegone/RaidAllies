@@ -3,7 +3,9 @@
 ## Notes: Track recent raid allies and re-invite quickly.
 ## Author: Nosebug
 ## Version: @project-version@
+## X-Curse-Project-ID: 1511283
 ## SavedVariablesPerCharacter: RaidAlliesDB
+## IconTexture: Interface\Icons\Achievement_Boss_Ragnaros
 
 Core.lua
 Data.lua
