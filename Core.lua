@@ -400,6 +400,58 @@ local function BuildNoteDialog()
     return dlg
 end
 
+local _confirmDlg
+local function BuildConfirmDialog()
+    if _confirmDlg then return _confirmDlg end
+    local T = RaidAllies.Theme
+    local FONT = RaidAllies:GetFont()
+
+    local dlg = RaidAllies:MakeWindow("RaidAlliesConfirmDialog", "Confirm", 360, 160)
+    dlg:SetFrameStrata("DIALOG")
+    dlg:SetFrameLevel(140)
+    if dlg.titleBar then dlg.titleBar:SetFrameLevel(dlg:GetFrameLevel() + 2) end
+    if dlg.body then dlg.body:SetFrameLevel(dlg:GetFrameLevel() + 1) end
+
+    dlg.message = dlg.body:CreateFontString(nil, "OVERLAY")
+    dlg.message:SetFont(FONT, 12, "")
+    dlg.message:SetPoint("TOPLEFT", dlg.body, "TOPLEFT", 14, -14)
+    dlg.message:SetPoint("TOPRIGHT", dlg.body, "TOPRIGHT", -14, -14)
+    dlg.message:SetJustifyH("LEFT")
+    dlg.message:SetJustifyV("TOP")
+    dlg.message:SetTextColor(T.text[1], T.text[2], T.text[3])
+    dlg.message:SetWordWrap(true)
+
+    dlg.confirmBtn = RaidAllies:MakeButton(dlg.body, "OK", 80, 22)
+    dlg.confirmBtn:SetPoint("BOTTOMRIGHT", dlg.body, "BOTTOMRIGHT", -12, 12)
+
+    dlg.cancelBtn = RaidAllies:MakeButton(dlg.body, "Cancel", 80, 22)
+    dlg.cancelBtn:SetPoint("RIGHT", dlg.confirmBtn, "LEFT", -6, 0)
+
+    dlg.confirmBtn:SetScript("OnClick", function()
+        local cb = dlg._onConfirm
+        dlg:Hide()
+        if cb then cb() end
+    end)
+    dlg.cancelBtn:SetScript("OnClick", function() dlg:Hide() end)
+
+    _confirmDlg = dlg
+    return dlg
+end
+
+function RaidAllies:ShowConfirmDialog(opts)
+    opts = opts or {}
+    local dlg = BuildConfirmDialog()
+    dlg.message:SetText(opts.message or "")
+    dlg.confirmBtn:SetText(opts.confirmText or "OK")
+    dlg.cancelBtn:SetText(opts.cancelText or "Cancel")
+    dlg._onConfirm = opts.onConfirm
+    dlg:Show()
+    dlg:Raise()
+    dlg:SetFrameLevel(140)
+    if dlg.titleBar then dlg.titleBar:SetFrameLevel(dlg:GetFrameLevel() + 2) end
+    if dlg.body then dlg.body:SetFrameLevel(dlg:GetFrameLevel() + 1) end
+end
+
 function RaidAllies:ShowNoteDialog(playerName, onSaved)
     if not playerName then return end
     local dlg = BuildNoteDialog()
@@ -652,6 +704,25 @@ function RaidAllies:BuildPlayerMenuItems(playerName)
                     AddIgnore(playerName)
                 end
                 RaidAllies:Print("Ignored " .. shortName)
+            end,
+        },
+        false,
+        {
+            text = "Remove from list",
+            onClick = function()
+                if RaidAllies.Data:IsHidden(playerName) then
+                    RefreshAllPlayerUIs()
+                    return
+                end
+                RaidAllies:ShowConfirmDialog({
+                    message = "Remove " .. RaidAllies:ColorName(playerName) .. " from your list?\n\nThey will be hidden but not deleted.\nYou can restore them later.",
+                    confirmText = "Remove",
+                    cancelText = "Cancel",
+                    onConfirm = function()
+                        RaidAllies.Data:SetHidden(playerName, true)
+                        RefreshAllPlayerUIs()
+                    end,
+                })
             end,
         },
     }

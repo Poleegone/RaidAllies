@@ -216,14 +216,21 @@ function UI:Refresh()
     local snap = self.current
     if not f or not snap then return end
 
+    local visible = {}
+    for _, entry in ipairs(snap.players) do
+        if not RaidAllies.Data:IsHidden(entry.name) then
+            visible[#visible + 1] = entry
+        end
+    end
+
     f.header:SetText(string.format(
         "Bosses: |cffffffff%d|r    Duration: |cffffffff%s|r    Players: |cffffffff%d|r",
-        snap.bosses or 0, FormatDuration(snap.duration), #snap.players
+        snap.bosses or 0, FormatDuration(snap.duration), #visible
     ))
 
     local T = RaidAllies.Theme
 
-    table.sort(snap.players, function(a, b)
+    table.sort(visible, function(a, b)
         local ra = RaidAllies.Data:Get(a.name)
         local rb = RaidAllies.Data:Get(b.name)
         local sa = RaidAllies.Data:TrustScore(ra)
@@ -239,7 +246,7 @@ function UI:Refresh()
     f.content:SetWidth(contentW)
 
     local prev
-    for i, entry in ipairs(snap.players) do
+    for i, entry in ipairs(visible) do
         local row = GetRow(f.content, i)
         row:ClearAllPoints()
         row:SetWidth(contentW)
@@ -289,11 +296,11 @@ function UI:Refresh()
         prev = row
     end
 
-    for i = #snap.players + 1, #f.rows do
+    for i = #visible + 1, #f.rows do
         f.rows[i]:Hide()
     end
 
-    f.content:SetHeight(math.max(1, #snap.players * ROW_HEIGHT))
+    f.content:SetHeight(math.max(1, #visible * ROW_HEIGHT))
     RaidAllies:UpdateScroll(f.scrollWrap)
 end
 

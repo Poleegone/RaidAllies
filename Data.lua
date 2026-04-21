@@ -19,6 +19,7 @@ function Data:Init()
             rec.fc = rec.fc or 0
             rec.ls = rec.ls or 0
             rec.isTest = rec.isTest or false
+            rec.hidden = rec.hidden or false
             rec.class = rec.class or nil
             rec.role = rec.role or nil
             rec.lastRaid = rec.lastRaid or nil
@@ -97,6 +98,17 @@ function Data:SetAvoid(name, value)
         p.flags.avoid = value and true or false
         if p.flags.avoid then p.flags.like = false end
     end
+end
+
+function Data:SetHidden(name, value)
+    local p = self:Get(name)
+    if not p then return end
+    p.hidden = value and true or false
+end
+
+function Data:IsHidden(name)
+    local p = self:Get(name)
+    return p and p.hidden or false
 end
 
 function Data:SetNote(name, note)

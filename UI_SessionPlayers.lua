@@ -139,7 +139,13 @@ function UI:Refresh()
     if not f then return end
 
     local snap = RaidAllies.lastSession
-    local players = snap and snap.players or {}
+    local rawPlayers = snap and snap.players or {}
+    local players = {}
+    for _, entry in ipairs(rawPlayers) do
+        if not RaidAllies.Data:IsHidden(entry.name) then
+            players[#players + 1] = entry
+        end
+    end
 
     if f.snapshotHint then
         if RaidAllies.Session and RaidAllies.Session:IsActive() then

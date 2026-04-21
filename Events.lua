@@ -13,6 +13,7 @@ local function OnEncounterEnd(encounterID, encounterName, difficultyID, groupSiz
     if success ~= 1 and success ~= true then return end
     local session = RaidAllies.Session
     if not session:IsActive() then
+        if not session:ShouldTrackContent() then return end
         session:Start()
     end
     session:RecordBossKill()
@@ -41,6 +42,7 @@ local function OnChallengeModeStart()
 
     local session = RaidAllies.Session
     if not session:IsActive() then
+        if not session:ShouldTrackContent() then return end
         session:Start()
     end
     session.isMythicPlus = true

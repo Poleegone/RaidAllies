@@ -12,6 +12,7 @@ Data.lua
 Snapshots.lua
 MythicPlus.lua
 Session.lua
+Presence.lua
 Events.lua
 UI_Summary.lua
 UI_SessionPlayers.lua

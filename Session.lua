@@ -15,6 +15,27 @@ function Session:IsActive()
     return self.active
 end
 
+-- Whitelist: only raids and (enabled) Mythic+ keystone runs are tracked.
+-- Everything else (Delves, normal/heroic dungeons, scenarios, open world)
+-- returns false. Called from every tracking entry point.
+function Session:ShouldTrackContent()
+    local inInstance, instanceType = IsInInstance()
+    if not inInstance then return false end
+
+    if instanceType == "raid" then return true end
+
+    if instanceType == "party" then
+        local mplus = RaidAllies.MythicPlus
+        if not (mplus and mplus:IsEnabled()) then return false end
+        if C_ChallengeMode and C_ChallengeMode.IsChallengeModeActive then
+            return C_ChallengeMode.IsChallengeModeActive() == true
+        end
+        return false
+    end
+
+    return false
+end
+
 function Session:Start()
     if self.active then return end
     self.active = true
