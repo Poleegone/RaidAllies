@@ -19,10 +19,7 @@ local DIFF_W = 28
 local DIFF_GAP = 6
 local ROLE_ICON_SIZE = 14
 local ROLE_ICON_LEFT = 10
-local STATUS_DOT_SIZE = 8
-local STATUS_DOT_GAP = 6
-local STATUS_DOT_LEFT = ROLE_ICON_LEFT + ROLE_ICON_SIZE + STATUS_DOT_GAP
-local NAME_LEFT = STATUS_DOT_LEFT + STATUS_DOT_SIZE + 10
+local NAME_LEFT = ROLE_ICON_LEFT + ROLE_ICON_SIZE + 8
 local TRUST_RIGHT_OFFSET = COL_INVITE_RIGHT - BTN_INVITE_W - TRUST_GAP
 local TRUST_LEFT_OFFSET = TRUST_RIGHT_OFFSET - TRUST_W
 local DIFF_RIGHT_OFFSET = TRUST_LEFT_OFFSET - DIFF_GAP
@@ -94,6 +91,15 @@ local function CreateFrameOnce()
     f.snapshotsBtn:SetScript("OnClick", function()
         if RaidAllies.UI_Snapshots then RaidAllies.UI_Snapshots:Toggle() end
     end)
+
+    f.mplusToggleBtn = RaidAllies:MakeButton(f.body, "", 120, 18)
+    f.mplusToggleBtn:SetPoint("RIGHT", f.snapshotsBtn, "LEFT", -6, 0)
+    f.mplusToggleBtn:SetScript("OnClick", function()
+        local current = RaidAlliesDB and RaidAlliesDB.enableMythicPlus
+        RaidAllies:SetMythicPlusEnabled(not current)
+    end)
+    UI.mplusToggleBtn = f.mplusToggleBtn
+    UI:RefreshMPlusToggle()
 
     f.listBg = RaidAllies:MakePanel(f.body)
     f.listBg:SetPoint("TOPLEFT", f.header, "BOTTOMLEFT", 0, -6)
@@ -216,21 +222,6 @@ local function GetRow(parent, index)
     row.roleIcon:SetSize(ROLE_ICON_SIZE, ROLE_ICON_SIZE)
     row.roleIcon:SetPoint("TOPLEFT", row, "TOPLEFT", ROLE_ICON_LEFT, -7)
     row.roleIcon:Hide()
-
-    row.statusHit = CreateFrame("Frame", nil, row)
-    row.statusHit:SetSize(STATUS_DOT_SIZE + 4, STATUS_DOT_SIZE + 4)
-    row.statusHit:SetPoint("TOPLEFT", row, "TOPLEFT", STATUS_DOT_LEFT - 2, -(7 + (ROLE_ICON_SIZE - STATUS_DOT_SIZE) / 2) + 2)
-    row.statusHit:EnableMouse(true)
-    row.statusDot = row.statusHit:CreateTexture(nil, "ARTWORK")
-    row.statusDot:SetSize(STATUS_DOT_SIZE, STATUS_DOT_SIZE)
-    row.statusDot:SetPoint("CENTER", row.statusHit, "CENTER", 0, 0)
-    row.statusDot:SetColorTexture(0.5, 0.5, 0.5, 1)
-    row.statusHit:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(self._online and "Online" or "Unknown", 1, 1, 1)
-        GameTooltip:Show()
-    end)
-    row.statusHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     row.name = row:CreateFontString(nil, "OVERLAY")
     row.name:SetFont(FONT, 13, "")
@@ -358,14 +349,6 @@ function UI:Refresh()
             colouredName = "|cff777777" .. entry.name .. "|r"
         end
 
-        local online = RaidAllies.Presence and RaidAllies.Presence:IsOnline(entry.name)
-        if online then
-            row.statusDot:SetColorTexture(0.30, 0.85, 0.40, 1)
-        else
-            row.statusDot:SetColorTexture(0.45, 0.48, 0.52, 1)
-        end
-        row.statusHit._online = online and true or false
-
         local atlas = rec.role and ROLE_ATLAS[rec.role]
         if atlas then
             row.roleIcon:SetAtlas(atlas)
@@ -426,20 +409,11 @@ function UI:Refresh()
     RaidAllies:UpdateScroll(f.scrollWrap)
 end
 
-function UI:RefreshPresence()
-    local f = self.frame
-    if not f or not f:IsShown() or not f.rows then return end
-    for _, row in ipairs(f.rows) do
-        if row:IsShown() and row.playerName and row.statusDot then
-            local online = RaidAllies.Presence and RaidAllies.Presence:IsOnline(row.playerName)
-            if online then
-                row.statusDot:SetColorTexture(0.30, 0.85, 0.40, 1)
-            else
-                row.statusDot:SetColorTexture(0.45, 0.48, 0.52, 1)
-            end
-            row.statusHit._online = online and true or false
-        end
-    end
+function UI:RefreshMPlusToggle()
+    local btn = self.mplusToggleBtn
+    if not btn then return end
+    local enabled = RaidAlliesDB and RaidAlliesDB.enableMythicPlus
+    btn:SetText(enabled and "M+ Tracking: ON" or "M+ Tracking: OFF")
 end
 
 function UI:Show()

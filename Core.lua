@@ -39,6 +39,19 @@ function RaidAllies:Print(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffRaidAllies|r: " .. tostring(msg))
 end
 
+function RaidAllies:SetMythicPlusEnabled(enabled)
+    enabled = enabled and true or false
+    if type(RaidAlliesDB) == "table" then
+        RaidAlliesDB.enableMythicPlus = enabled
+    end
+    if self.MythicPlus then
+        self.MythicPlus:SetEnabled(enabled)
+    end
+    if self.UI_Main and self.UI_Main.RefreshMPlusToggle then
+        self.UI_Main:RefreshMPlusToggle()
+    end
+end
+
 -- Dark slate theme
 RaidAllies.Theme = {
     bg        = { 0.08, 0.09, 0.11, 0.90 },

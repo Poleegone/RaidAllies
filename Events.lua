@@ -173,10 +173,10 @@ SlashCmdList["RAIDALLIES"] = function(msg)
         if not mplus then
             RaidAllies:Print("Mythic+ module not loaded.")
         elseif msg == "mplus on" then
-            mplus:SetEnabled(true)
+            RaidAllies:SetMythicPlusEnabled(true)
             RaidAllies:Print("Mythic+ tracking enabled.")
         elseif msg == "mplus off" then
-            mplus:SetEnabled(false)
+            RaidAllies:SetMythicPlusEnabled(false)
             RaidAllies:Print("Mythic+ tracking disabled.")
         else
             RaidAllies:Print("Mythic+ tracking: " .. (mplus:IsEnabled() and "on" or "off") .. ". Use /ra mplus on|off")

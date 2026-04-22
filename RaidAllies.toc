@@ -1,4 +1,4 @@
-## Interface: 120001
+## Interface: 120005
 ## Title: RaidAllies
 ## Notes: Track recent raid allies and re-invite quickly.
 ## Author: Nosebug
@@ -12,7 +12,6 @@ Data.lua
 Snapshots.lua
 MythicPlus.lua
 Session.lua
-Presence.lua
 Events.lua
 UI_Summary.lua
 UI_SessionPlayers.lua

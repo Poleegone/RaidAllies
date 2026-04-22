@@ -10,6 +10,12 @@ function Data:Init()
     if type(RaidAlliesDB.players) ~= "table" then
         RaidAlliesDB.players = {}
     end
+    if type(RaidAlliesDB.enableMythicPlus) ~= "boolean" then
+        RaidAlliesDB.enableMythicPlus = true
+    end
+    if RaidAllies.MythicPlus then
+        RaidAllies.MythicPlus:SetEnabled(RaidAlliesDB.enableMythicPlus)
+    end
     -- Ensure each player record has required fields
     for key, rec in pairs(RaidAlliesDB.players) do
         if type(rec) ~= "table" then

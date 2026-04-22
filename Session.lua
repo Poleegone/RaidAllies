@@ -202,6 +202,28 @@ function Session:CaptureChallengeCompletion(raidName, difficulty)
             outcome = "Timed",
         })
     end
+
+    -- M+ is an atomic event: commit kills to the persistent DB now rather
+    -- than waiting for Session:End (which only fires on group disband or
+    -- zone change, and may never fire if the group chains another key).
+    -- Then zero out per-player kills so a later Session:End won't double-commit.
+    local now = time()
+    local mplusLevel = self.mplusLevel
+    local mplusDungeon = self.mplusDungeon
+    for _, entry in ipairs(snapshot.players) do
+        if entry.kills and entry.kills > 0 then
+            RaidAllies.Data:CommitSessionPlayer(entry.name, entry.kills, false, now, self.isTest, self.raidName, self.bestDiff, mplusDungeon, mplusLevel)
+            if entry.class then
+                RaidAllies.Data:SetClass(entry.name, entry.class)
+            end
+            if entry.role then
+                RaidAllies.Data:SetRole(entry.name, entry.role)
+            end
+        end
+    end
+    for _, info in pairs(self.players) do
+        info.kills = 0
+    end
 end
 
 -- Test helpers: populate/advance a fake session without requiring a real raid roster.
